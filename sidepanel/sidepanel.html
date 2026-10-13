@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TalkAStranger Streamer HUD</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="hud-container">
+    <!-- Header -->
+    <header class="hud-header">
+      <div class="streamer-badge">
+        <div class="avatar-ring">
+          <img src="../icons/icon48.png" alt="Avatar" class="avatar-img">
+          <span class="live-pulse-dot" id="liveIndicator"></span>
+        </div>
+        <div class="streamer-meta">
+          <div class="streamer-name">
+            <span id="usernameLabel">@creator</span>
+            <span class="verified-icon">✓</span>
+          </div>
+          <span class="status-pill" id="statusBadge">OFFLINE</span>
+        </div>
+      </div>
+      <button class="icon-btn" id="soundToggleBtn" title="Toggle Gift Sound Alert">🔔</button>
+    </header>
+
+    <!-- Metrics Row -->
+    <div class="metrics-card">
+      <div class="metric-item">
+        <span class="metric-icon">👥</span>
+        <span class="metric-val" id="viewersCount">0</span>
+        <span class="metric-lbl">Viewers</span>
+      </div>
+      <div class="metric-item">
+        <span class="metric-icon">✨</span>
+        <span class="metric-val" id="sparksCount">0</span>
+        <span class="metric-lbl">Sparks</span>
+      </div>
+      <div class="metric-item">
+        <span class="metric-icon">⏱️</span>
+        <span class="metric-val" id="streamTimer">00:00:00</span>
+        <span class="metric-lbl">Duration</span>
+      </div>
+    </div>
+
+    <!-- Quick Action Controls -->
+    <div class="controls-row">
+      <button class="btn btn-primary" id="btnGoLive">
+        <span class="btn-icon">🔴</span>
+        <span id="goLiveText">Start Broadcast</span>
+      </button>
+      <button class="btn btn-secondary" id="btnCopyOverlay" title="Copy OBS Browser Source URL">
+        <span class="btn-icon">📋</span>
+        <span>OBS Overlay</span>
+      </button>
+    </div>
+    <div id="toastMessage" class="toast hidden">Copied to clipboard!</div>
+
+    <!-- Floating Gift Alert Overlay (Animated) -->
+    <div id="giftAlertBanner" class="gift-banner hidden">
+      <div class="gift-icon" id="giftIconAnim">⚡</div>
+      <div class="gift-info">
+        <div class="gift-title" id="giftSender">A Viewer</div>
+        <div class="gift-desc" id="giftMessage">Sent Spark Burst (+25 Sparks)</div>
+      </div>
+    </div>
+
+    <!-- Live Stream Chat Feed -->
+    <div class="chat-section">
+      <div class="chat-header">
+        <span class="chat-title">Live Chat & Alerts</span>
+        <span class="chat-mode">Auto-Scroll</span>
+      </div>
+      <div class="chat-messages" id="chatFeed">
+        <div class="chat-system-msg">
+          👋 Welcome to your Streamer HUD. Live chat & gift notifications appear here in real time.
+        </div>
+      </div>
+      <!-- Quick Reply Composer -->
+      <form class="chat-composer" id="chatComposerForm">
+        <input type="text" id="chatInput" placeholder="Send a message to stream chat..." autocomplete="off">
+        <button type="submit" class="composer-send-btn">Send</button>
+      </form>
+    </div>
+
+    <!-- Footer Links -->
+    <footer class="hud-footer">
+      <a href="https://talkastranger.com/developers" target="_blank" class="footer-link">SDK & Overlays</a>
+      <span class="divider">•</span>
+      <a href="https://talkastranger.com/pricing" target="_blank" class="footer-link">Sparks Store</a>
+      <span class="divider">•</span>
+      <a href="https://talkastranger.com" target="_blank" class="footer-link">TalkAStranger.com</a>
+    </footer>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

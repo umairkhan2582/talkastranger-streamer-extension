@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "TalkAStranger Streamer Companion",
+  "version": "1.0.0",
+  "description": "Live chat HUD, real-time gift alerts & screen capture for TalkAStranger creators",
+  "permissions": [
+    "sidePanel",
+    "tabCapture",
+    "storage",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://talkastranger.com/*",
+    "wss://talkastranger.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "TalkAStranger Streamer Companion"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://talkastranger.com/*"
+      ],
+      "js": [
+        "content/bridge.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

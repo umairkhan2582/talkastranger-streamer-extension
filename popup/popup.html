@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TalkAStranger Companion</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-box">
+    <div class="popup-header">
+      <div class="brand">
+        <img src="../icons/icon48.png" class="brand-logo" alt="Logo">
+        <div>
+          <div class="brand-title">TalkAStranger</div>
+          <div class="brand-sub">Streamer Companion</div>
+        </div>
+      </div>
+      <div class="conn-dot" title="Live Ready"></div>
+    </div>
+
+    <div class="status-box">
+      <span class="status-label">Streamer Account</span>
+      <span class="status-name" id="popUsername">@creator</span>
+    </div>
+
+    <div class="action-list">
+      <button class="action-btn primary" id="btnOpenSidepanel">
+        <span class="btn-icon">🖥️</span>
+        <span>Open Streamer HUD (Side Panel)</span>
+      </button>
+
+      <button class="action-btn" id="btnOpenCapture">
+        <span class="btn-icon">🎥</span>
+        <span>Screen & Tab Studio</span>
+      </button>
+
+      <button class="action-btn" id="btnCopyOverlay">
+        <span class="btn-icon">📋</span>
+        <span id="copyOverlayLabel">Copy OBS Overlay URL</span>
+      </button>
+    </div>
+
+    <div class="footer-note">
+      <a href="https://talkastranger.com" target="_blank">Open TalkAStranger.com</a>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
