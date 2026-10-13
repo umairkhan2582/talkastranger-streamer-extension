@@ -171,7 +171,7 @@ btnCopyOverlay.addEventListener("click", () => {
 
 soundToggleBtn.addEventListener("click", () => {
   audioAlerts = !audioAlerts;
-  soundToggleBtn.textContent = audioAlerts ? "🔔" : "🔕";
+  soundToggleBtn.style.opacity = audioAlerts ? 1 : 0.4;
 });
 
 chatComposerForm.addEventListener("submit", (e) => {

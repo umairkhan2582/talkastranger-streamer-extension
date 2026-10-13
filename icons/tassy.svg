@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="body-g" cx="40%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="60%" stop-color="#9333ea"/>
+      <stop offset="100%" stop-color="#7e22ce"/>
+    </radialGradient>
+    <radialGradient id="eye-g" cx="35%" cy="25%" r="70%">
+      <stop offset="0%" stop-color="#93c5fd"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </radialGradient>
+    <radialGradient id="belly-g" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#fde68a"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </radialGradient>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#6b21a8" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <g filter="url(#shadow)">
+    <!-- Left ear -->
+    <path d="M16 22 L11 6 L25 16 Z" fill="url(#body-g)"/>
+    <path d="M17 21 L14 9 L24 17 Z" fill="#f59e0b" opacity="0.85"/>
+    <!-- Right ear -->
+    <path d="M40 20 L45 5 L35 16 Z" fill="url(#body-g)"/>
+    <path d="M39 20 L44 8 L35 17 Z" fill="#f59e0b" opacity="0.85"/>
+    <!-- Head -->
+    <ellipse cx="28" cy="30" rx="19" ry="17" fill="url(#body-g)"/>
+    <!-- Head stripes -->
+    <path d="M11 26 Q18 23 24 27" stroke="#7e22ce" stroke-width="2" stroke-linecap="round" opacity="0.4" fill="none"/>
+    <path d="M44 26 Q37 23 32 27" stroke="#7e22ce" stroke-width="2" stroke-linecap="round" opacity="0.4" fill="none"/>
+    <!-- Body -->
+    <ellipse cx="28" cy="51" rx="16" ry="13" fill="url(#body-g)"/>
+    <!-- Belly -->
+    <ellipse cx="27" cy="50" rx="9" ry="9" fill="url(#belly-g)" opacity="0.9"/>
+    <!-- Left eye -->
+    <ellipse cx="21" cy="28" rx="5" ry="5.5" fill="url(#eye-g)"/>
+    <ellipse cx="21" cy="28" rx="3" ry="3.5" fill="#1e40af"/>
+    <ellipse cx="19.5" cy="26.5" rx="1.2" ry="1.2" fill="white" opacity="0.9"/>
+    <ellipse cx="22.5" cy="30.5" rx="0.8" ry="0.8" fill="white" opacity="0.6"/>
+    <!-- Right eye -->
+    <ellipse cx="35" cy="28" rx="5" ry="5.5" fill="url(#eye-g)"/>
+    <ellipse cx="35" cy="28" rx="3" ry="3.5" fill="#1e40af"/>
+    <ellipse cx="33.5" cy="26.5" rx="1.2" ry="1.2" fill="white" opacity="0.9"/>
+    <ellipse cx="36.5" cy="30.5" rx="0.8" ry="0.8" fill="white" opacity="0.6"/>
+    <!-- Nose -->
+    <path d="M27 33 L28 34.5 L29 33 Z" fill="#f59e0b"/>
+    <!-- Mouth -->
+    <path d="M25 35 Q28 37.5 31 35" stroke="#7e22ce" stroke-width="1.2" stroke-linecap="round" opacity="0.6" fill="none"/>
+    <!-- Whiskers left -->
+    <line x1="6" y1="32" x2="19" y2="33" stroke="white" stroke-width="0.8" opacity="0.5"/>
+    <line x1="6" y1="35" x2="19" y2="35" stroke="white" stroke-width="0.8" opacity="0.5"/>
+    <!-- Whiskers right -->
+    <line x1="37" y1="33" x2="50" y2="32" stroke="white" stroke-width="0.8" opacity="0.5"/>
+    <line x1="37" y1="35" x2="50" y2="35" stroke="white" stroke-width="0.8" opacity="0.5"/>
+    <!-- Paws -->
+    <ellipse cx="17" cy="61" rx="7" ry="4" fill="url(#body-g)"/>
+    <ellipse cx="39" cy="61" rx="7" ry="4" fill="url(#body-g)"/>
+    <!-- Paw pads -->
+    <ellipse cx="17" cy="62" rx="3" ry="1.8" fill="#f59e0b" opacity="0.8"/>
+    <ellipse cx="39" cy="62" rx="3" ry="1.8" fill="#f59e0b" opacity="0.8"/>
+    <!-- Tail -->
+    <path d="M44 55 Q56 48 54 38 Q52 30 47 34 Q45 37 47 42 Q49 49 43 54 Z" fill="url(#body-g)"/>
+    <ellipse cx="54" cy="38" rx="3" ry="4" fill="#f59e0b" transform="rotate(-20 54 38)"/>
+  </g>
+</svg>

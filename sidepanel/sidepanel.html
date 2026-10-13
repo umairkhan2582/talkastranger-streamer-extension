@@ -12,7 +12,7 @@
     <header class="hud-header">
       <div class="streamer-badge">
         <div class="avatar-ring">
-          <img src="../icons/icon48.png" alt="Avatar" class="avatar-img">
+          <img src="../icons/tassy.svg" alt="Tassy Mascot" class="avatar-img">
           <span class="live-pulse-dot" id="liveIndicator"></span>
         </div>
         <div class="streamer-meta">
@@ -23,23 +23,31 @@
           <span class="status-pill" id="statusBadge">OFFLINE</span>
         </div>
       </div>
-      <button class="icon-btn" id="soundToggleBtn" title="Toggle Gift Sound Alert">🔔</button>
+      <button class="icon-btn" id="soundToggleBtn" title="Toggle Gift Sound Alert">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      </button>
     </header>
 
     <!-- Metrics Row -->
     <div class="metrics-card">
       <div class="metric-item">
-        <span class="metric-icon">👥</span>
+        <span class="metric-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </span>
         <span class="metric-val" id="viewersCount">0</span>
         <span class="metric-lbl">Viewers</span>
       </div>
       <div class="metric-item">
-        <span class="metric-icon">✨</span>
+        <span class="metric-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </span>
         <span class="metric-val" id="sparksCount">0</span>
         <span class="metric-lbl">Sparks</span>
       </div>
       <div class="metric-item">
-        <span class="metric-icon">⏱️</span>
+        <span class="metric-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </span>
         <span class="metric-val" id="streamTimer">00:00:00</span>
         <span class="metric-lbl">Duration</span>
       </div>
@@ -48,19 +56,19 @@
     <!-- Quick Action Controls -->
     <div class="controls-row">
       <button class="btn btn-primary" id="btnGoLive">
-        <span class="btn-icon">🔴</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
         <span id="goLiveText">Start Broadcast</span>
       </button>
       <button class="btn btn-secondary" id="btnCopyOverlay" title="Copy OBS Browser Source URL">
-        <span class="btn-icon">📋</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
         <span>OBS Overlay</span>
       </button>
     </div>
     <div id="toastMessage" class="toast hidden">Copied to clipboard!</div>
 
-    <!-- Floating Gift Alert Overlay (Animated) -->
+    <!-- Floating Gift Alert Overlay (Animated with Tassy Mascot) -->
     <div id="giftAlertBanner" class="gift-banner hidden">
-      <div class="gift-icon" id="giftIconAnim">⚡</div>
+      <img src="../icons/tassy.svg" width="36" height="36" class="gift-icon" id="giftIconAnim" alt="Tassy Gift">
       <div class="gift-info">
         <div class="gift-title" id="giftSender">A Viewer</div>
         <div class="gift-desc" id="giftMessage">Sent Spark Burst (+25 Sparks)</div>
@@ -74,14 +82,17 @@
         <span class="chat-mode">Auto-Scroll</span>
       </div>
       <div class="chat-messages" id="chatFeed">
-        <div class="chat-system-msg">
-          👋 Welcome to your Streamer HUD. Live chat & gift notifications appear here in real time.
+        <div class="chat-system-msg" style="display:flex;align-items:center;gap:8px;">
+          <img src="../icons/tassy.svg" width="24" height="24" alt="Tassy" style="flex-shrink:0;">
+          <div>Welcome to your Streamer HUD. Live chat & gift notifications appear here in real time.</div>
         </div>
       </div>
       <!-- Quick Reply Composer -->
       <form class="chat-composer" id="chatComposerForm">
         <input type="text" id="chatInput" placeholder="Send a message to stream chat..." autocomplete="off">
-        <button type="submit" class="composer-send-btn">Send</button>
+        <button type="submit" class="composer-send-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+        </button>
       </form>
     </div>
 

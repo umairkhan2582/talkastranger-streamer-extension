@@ -9,7 +9,7 @@
   <div class="studio-container">
     <div class="studio-header">
       <div class="studio-title">
-        <span class="icon">🎥</span>
+        <img src="../icons/logo.svg" width="28" height="28" alt="Logo" style="flex-shrink:0;">
         <h2>TalkAStranger Broadcaster Studio</h2>
       </div>
       <div class="studio-status" id="streamStatusBadge">READY TO STREAM</div>
@@ -18,10 +18,13 @@
     <div class="preview-viewport">
       <video id="previewVideo" autoplay muted playsinline></video>
       <div id="noStreamPlaceholder" class="placeholder">
-        <span class="big-icon">📺</span>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
         <h3>No Video Source Selected</h3>
         <p>Select a browser tab, app window, or your whole display to broadcast directly.</p>
-        <button class="btn-select-source" id="btnSelectSource">Select Screen or Tab</button>
+        <button class="btn-select-source" id="btnSelectSource">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+          Select Screen or Tab
+        </button>
       </div>
       <div class="live-tag hidden" id="liveTag">● LIVE STREAMING</div>
     </div>
