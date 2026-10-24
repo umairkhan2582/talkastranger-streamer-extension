@@ -3,6 +3,7 @@
   "name": "TalkAStranger Streamer Companion",
   "version": "1.0.2",
   "description": "Broadcast your screen to TalkAStranger Live Streams or a Country LIVE lane.",
+  "minimum_chrome_version": "116",
   "permissions": [
     "sidePanel",
     "tabCapture",
@@ -13,8 +14,7 @@
     "https://talkastranger.com/*"
   ],
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "action": {
     "default_popup": "popup/popup.html",

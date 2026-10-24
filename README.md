@@ -44,7 +44,7 @@ Because this extension uses Chrome's modern **Manifest V3 Side Panel API**, it r
 
 ### Method 1: Download Pre-packaged ZIP (Fastest)
 1. Download the latest ready-to-load ZIP:  
-   👉 **[Download talkastranger-streamer-extension.zip](https://talkastranger.com/talkastranger-streamer-extension.zip)**
+   👉 **[Download talkastranger-streamer-extension-v1.0.2.zip](https://talkastranger.com/talkastranger-streamer-extension-v1.0.2.zip)**
 2. Unzip the downloaded file into a folder on your computer (e.g. `talkastranger-streamer-extension`).
 3. Open Google Chrome and navigate to:
    ```text
@@ -53,6 +53,11 @@ Because this extension uses Chrome's modern **Manifest V3 Side Panel API**, it r
 4. Turn ON **Developer mode** using the toggle switch in the top-right corner.
 5. Click **Load unpacked** (top-left button) and select the extracted folder.
 6. Click the Extensions puzzle icon in Chrome and pin **TalkAStranger Streamer Companion** to your toolbar!
+
+### ⚠️ Important: Avoiding "Manifest file is missing or unreadable"
+When loading in Chrome via **Load unpacked**:
+1. **Extract the ZIP file** — Chrome cannot load a `.zip` file directly.
+2. **Select the extracted folder containing `manifest.json`** — Ensure you select the folder where `manifest.json` is located, not an outer parent directory.
 
 ### Method 2: Clone from GitHub
 ```bash
