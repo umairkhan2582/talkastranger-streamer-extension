@@ -123,3 +123,16 @@ body {
 .footer-note a:hover {
   color: #fff;
 }
+
+.auth-box {
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid rgba(168, 85, 247, .28);
+  border-radius: 10px;
+  background: rgba(124, 58, 237, .08);
+}
+.auth-status { font-size: 11px; line-height: 1.45; color: #d1d5db; margin-bottom: 8px; }
+.auth-actions { display: flex; flex-direction: column; gap: 6px; }
+.auth-actions[hidden], .text-btn[hidden] { display: none; }
+.text-btn { border: 0; background: transparent; color: #c084fc; font-size: 11px; cursor: pointer; padding: 4px 0 0; }
+.conn-dot.offline { background: #6b7280; box-shadow: none; }

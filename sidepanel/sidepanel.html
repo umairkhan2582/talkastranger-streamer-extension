@@ -28,6 +28,11 @@
       </button>
     </header>
 
+    <div class="auth-strip" id="authStrip">
+      <span id="authStatus">Checking account…</span>
+      <button id="authAction" type="button">Sign in</button>
+    </div>
+
     <!-- Metrics Row -->
     <div class="metrics-card">
       <div class="metric-item">
@@ -79,17 +84,17 @@
     <div class="chat-section">
       <div class="chat-header">
         <span class="chat-title">Live Chat & Alerts</span>
-        <span class="chat-mode">Auto-Scroll</span>
+        <span class="chat-mode" id="connectionStatus">Connecting…</span>
       </div>
       <div class="chat-messages" id="chatFeed">
         <div class="chat-system-msg" style="display:flex;align-items:center;gap:8px;">
           <img src="../icons/tassy.svg" width="24" height="24" alt="Tassy" style="flex-shrink:0;">
-          <div>Welcome to your Streamer HUD. Live chat & gift notifications appear here in real time.</div>
+          <div>Sign in to link your TalkAStranger account. This panel does not create or change a website broadcast.</div>
         </div>
       </div>
       <!-- Quick Reply Composer -->
       <form class="chat-composer" id="chatComposerForm">
-        <input type="text" id="chatInput" placeholder="Send a message to stream chat..." autocomplete="off">
+        <input type="text" id="chatInput" placeholder="Sign in to send live chat" autocomplete="off" disabled>
         <button type="submit" class="composer-send-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
         </button>

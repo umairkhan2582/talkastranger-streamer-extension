@@ -1,32 +1,38 @@
-// TalkAStranger Content Script Bridge
-// Injected into https://talkastranger.com/* to automatically link session
-
+// Minimal, read-only session bridge from TalkAStranger's own page to the extension.
+// Never writes to site storage or injects code into the website.
 (function() {
-  function syncAuthWithExtension() {
+  function readCurrentSession() {
     try {
-      const userRaw = localStorage.getItem("user") || localStorage.getItem("tas_user");
-      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
-      if (userRaw || token) {
-        let username = "creator";
-        if (userRaw) {
-          try {
-            const parsed = JSON.parse(userRaw);
-            username = parsed.username || parsed.name || username;
-          } catch(e) {
-            username = userRaw;
-          }
-        }
-        chrome.runtime.sendMessage({
-          type: "SET_AUTH",
-          payload: { username, token }
-        });
-      }
-    } catch(e) {}
+      return {
+        token: localStorage.getItem("tas_auth_token") || null,
+        nickname: localStorage.getItem("tas-pref-nickname") || localStorage.getItem("tas-swipe-nick") || null,
+      };
+    } catch (err) {
+      return { token: null, nickname: null };
+    }
   }
 
-  // Sync on load
-  syncAuthWithExtension();
+  let lastSerialized = "";
+  function sync(force = false) {
+    const session = readCurrentSession();
+    const serialized = JSON.stringify(session);
+    if (!force && serialized === lastSerialized) return;
+    lastSerialized = serialized;
+    try {
+      chrome.runtime.sendMessage({ type: "SYNC_SESSION", payload: session }, () => {
+        void chrome.runtime.lastError;
+      });
+    } catch {}
+  }
 
-  // Listen for storage events (e.g. login/logout)
-  window.addEventListener("storage", syncAuthWithExtension);
+  // Content scripts cannot observe same-tab localStorage writes, so detect changes while this tab is open.
+  sync(true);
+  setInterval(() => sync(false), 3000);
+
+  chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
+    if (req?.type === "REQUEST_PAGE_AUTH") {
+      sendResponse({ success: true, session: readCurrentSession(), force: true });
+      return true;
+    }
+  });
 })();

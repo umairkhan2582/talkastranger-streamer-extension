@@ -400,3 +400,8 @@ body {
 .footer-link:hover {
   color: #fff;
 }
+
+.auth-strip { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px; border:1px solid rgba(168,85,247,.25); border-radius:8px; background:rgba(124,58,237,.08); font-size:11px; color:#d1d5db; }
+.auth-strip button { background:transparent; border:0; color:#c084fc; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.auth-strip button[hidden] { display:none; }
+.chat-composer input:disabled { opacity:.65; cursor:not-allowed; }

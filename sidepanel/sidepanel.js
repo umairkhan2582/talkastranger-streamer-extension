@@ -22,6 +22,9 @@ const chatInput = document.getElementById("chatInput");
 const giftAlertBanner = document.getElementById("giftAlertBanner");
 const giftSender = document.getElementById("giftSender");
 const giftMessage = document.getElementById("giftMessage");
+const authStatus = document.getElementById("authStatus");
+const authAction = document.getElementById("authAction");
+const connectionStatus = document.getElementById("connectionStatus");
 
 // Play Web Audio synthetic notification chime
 function playChime() {
@@ -82,6 +85,12 @@ function syncUI(state) {
   }
   if (state.viewers !== undefined) viewersCount.textContent = state.viewers;
   if (state.sparks !== undefined) sparksCount.textContent = state.sparks;
+  const signedIn = !!state.authenticated;
+  authStatus.textContent = signedIn ? `Signed in as @${state.username || "Creator"}` : "Sign in on TalkAStranger to use your account";
+  authAction.textContent = signedIn ? "Sign out" : "Sign in";
+  chatInput.disabled = true;
+  chatInput.placeholder = signedIn ? "Live chat integration unavailable" : "Sign in to TalkAStranger first";
+  if (connectionStatus) connectionStatus.textContent = signedIn ? "Account verified" : "Sign in required";
 }
 
 // Initial state fetch
@@ -97,6 +106,10 @@ chrome.runtime.onMessage.addListener((msg) => {
     });
   } else if (msg.type === "AUTH_UPDATED") {
     syncUI(msg.payload);
+  } else if (msg.type === "SOCKET_STATUS") {
+    if (connectionStatus) connectionStatus.textContent = msg.status === "connected" ? "Connected" : msg.status === "signed_out" ? "Sign in required" : "Reconnecting…";
+  } else if (msg.type === "ACTION_ERROR") {
+    showToast(msg.error || "Action unavailable");
   } else if (msg.type === "LIVE_EVENT") {
     handleIncomingEvent(msg.payload);
   }
@@ -105,14 +118,15 @@ chrome.runtime.onMessage.addListener((msg) => {
 function handleIncomingEvent(data) {
   if (data.type === "chat") {
     appendChatMessage(data.user || "Viewer", data.text, data.badge);
-  } else if (data.type === "gift") {
-    playChime();
-    showGiftAlert(data.fromUser || "A Viewer", data.giftName || "Spark Burst", data.sparks || 25);
-    const curr = parseInt(sparksCount.textContent, 10) || 0;
-    sparksCount.textContent = curr + (data.sparks || 25);
   } else if (data.type === "viewers") {
     viewersCount.textContent = data.count || 0;
   }
+}
+
+function showToast(message) {
+  toastMessage.textContent = message;
+  toastMessage.classList.remove("hidden");
+  setTimeout(() => toastMessage.classList.add("hidden"), 3500);
 }
 
 function showGiftAlert(sender, gift, sparks) {
@@ -151,13 +165,8 @@ function appendChatMessage(author, text, badge) {
 
 // Controls
 btnGoLive.addEventListener("click", () => {
-  if (!isLive) {
-    // Open dedicated screen/tab capture studio
-    chrome.runtime.sendMessage({ type: "OPEN_CAPTURE" });
-    chrome.runtime.sendMessage({ type: "TOGGLE_LIVE", payload: true });
-  } else {
-    chrome.runtime.sendMessage({ type: "TOGGLE_LIVE", payload: false });
-  }
+  showToast("To start a real broadcast, use the TalkAStranger website. Screen Studio is a local preview only.");
+  chrome.tabs.create({ url: "https://talkastranger.com/creator-studio" });
 });
 
 btnCopyOverlay.addEventListener("click", () => {
@@ -178,7 +187,21 @@ chatComposerForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const val = chatInput.value.trim();
   if (!val) return;
-  const username = usernameLabel.textContent.replace("@", "");
-  appendChatMessage(`@${username}`, val, "CREATOR");
-  chatInput.value = "";
+  chrome.runtime.sendMessage({ type: "SEND_CHAT", payload: { message: val } }, (result) => {
+    if (chrome.runtime.lastError) return showToast("Extension connection unavailable.");
+    if (result?.success) {
+      const username = usernameLabel.textContent.replace("@", "");
+      appendChatMessage(`@${username}`, val, "CREATOR");
+      chatInput.value = "";
+    } else showToast(result?.error || "Message was not sent.");
+  });
 });
+
+authAction.addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "GET_STATE" }, (state) => {
+    if (state?.authenticated) chrome.runtime.sendMessage({ type: "LOGOUT" }, (next) => syncUI(next));
+    else chrome.tabs.create({ url: "https://talkastranger.com/" });
+  });
+});
+
+chrome.runtime.sendMessage({ type: "REQUEST_PAGE_AUTH" });

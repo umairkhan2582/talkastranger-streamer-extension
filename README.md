@@ -146,3 +146,9 @@ This project is open-source under the terms of the **[MIT License](LICENSE)**.
 - **Creator Studio:** [talkastranger.com/creator-studio](https://talkastranger.com/creator-studio)
 - **OBS Overlays:** [talkastranger-stream-overlays](https://github.com/umairkhan2582/talkastranger-stream-overlays)
 - **Live Linker SDK:** [talkastranger-live-linker-sdk](https://github.com/umairkhan2582/talkastranger-live-linker-sdk)
+
+## Account sign-in
+
+The extension uses the TalkAStranger account already signed in within a `https://talkastranger.com` browser tab. Open the extension popup and choose **Sign in on TalkAStranger**; after signing in on the site, return to the popup and choose **I’m already signed in**. The extension reads the site's `tas_auth_token` from that page and validates it with the existing read-only `GET /api/auth/me` endpoint. It does not ask for or store your password, change website data, or require a production-server change. If the site session expires, sign in again on the website and refresh the extension status.
+
+The extension package only changes the browser extension. It does not deploy website code or restart any production service.
