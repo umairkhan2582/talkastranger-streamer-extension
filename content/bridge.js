@@ -6,9 +6,10 @@
       return {
         token: localStorage.getItem("tas_auth_token") || null,
         nickname: localStorage.getItem("tas-pref-nickname") || localStorage.getItem("tas-swipe-nick") || null,
+        clientId: localStorage.getItem("tas-client-id") || localStorage.getItem("tas_client_id") || null,
       };
     } catch (err) {
-      return { token: null, nickname: null };
+      return { token: null, nickname: null, clientId: null };
     }
   }
 
@@ -25,7 +26,6 @@
     } catch {}
   }
 
-  // Content scripts cannot observe same-tab localStorage writes, so detect changes while this tab is open.
   sync(true);
   setInterval(() => sync(false), 3000);
 

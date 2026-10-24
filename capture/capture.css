@@ -204,3 +204,92 @@ body {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* Broadcaster Studio layout */
+.studio-layout { display:grid; grid-template-columns:minmax(0,1fr) 300px; height:100vh; gap:14px; padding:14px; }
+.studio-main { min-width:0; min-height:0; display:flex; flex-direction:column; gap:12px; }
+.studio-header,.studio-brand,.header-right,.account-pill,.destination-header,.option-content,.field-row,.stream-info-grid,.studio-bottom,.audio-header,.stream-settings-group,.action-buttons,.chat-header,.chat-title { display:flex; align-items:center; }
+.studio-header,.destination-header,.studio-bottom,.chat-header { justify-content:space-between; }
+.studio-brand { gap:12px; min-width:0; }
+.brand-logo { flex:none; }
+.brand-title { font-size:17px; line-height:1.25; }
+.brand-subtitle,.card-tip,.field-group label,.destination-hint,.option-desc,.audio-indicator { color:#9ca3af; font-size:12px; }
+.header-right { gap:12px; }
+.account-pill { gap:8px; background:#171a25; border:1px solid #292d3b; border-radius:999px; padding:8px 12px; font-size:12px; }
+.account-dot { width:8px;height:8px;border-radius:50%;background:#ef4444; }
+.account-dot.online { background:#10b981; box-shadow:0 0 8px #10b981; }
+.btn-text { border:0;background:none;color:#c4b5fd;font-weight:700;cursor:pointer; }
+.studio-status { white-space:nowrap; }
+.studio-status.live { background:#ef4444;color:#fff; }
+.destination-card { background:#141722;border:1px solid #252a38;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px; }
+.card-label,.panel-label { font-size:11px;font-weight:800;letter-spacing:.08em;color:#aeb4c4; }
+.destination-options { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
+.destination-option { border:1px solid #303548;border-radius:10px;padding:11px;cursor:pointer;background:#10131c; }
+.destination-option.active { border-color:#8b5cf6;background:rgba(124,58,237,.12); }
+.destination-option.unavailable { opacity:.45;cursor:not-allowed; }
+.destination-option input { position:absolute;opacity:0;pointer-events:none; }
+.option-content { gap:10px; }
+.option-icon { font-size:24px; }
+.option-text { display:flex;flex-direction:column;gap:4px; }
+.option-title { font-size:13px;font-weight:750; }
+.option-desc { line-height:1.35; }
+.country-details { background:#10131c;border:1px solid #292d3b;border-radius:9px;padding:12px; }
+.field-row,.stream-info-grid { gap:12px; }
+.field-group { min-width:0;display:flex;flex-direction:column;gap:6px;flex:1; }
+.field-group label { font-weight:650; }
+.form-input,.form-select,.quality-select { width:100%;padding:9px 10px;border:1px solid #33384a;background:#0b0d13;color:#f8fafc;border-radius:7px;outline:none; }
+.flex-2 { flex:2; }.flex-3 { flex:3; }
+.destination-hint { padding-top:9px; }
+.preview-viewport { min-height:180px; }
+.placeholder h3 { font-size:20px; }.placeholder p { line-height:1.5; }
+.live-overlay-hud { position:absolute;top:12px;left:12px;right:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+.live-overlay-hud.hidden,.hidden { display:none!important; }
+.live-pill,.live-destination-pill,.live-stat-pill,.live-watch-link { padding:7px 10px;border-radius:999px;background:rgba(10,12,18,.82);font-size:11px;font-weight:750; }
+.live-pill { background:#dc2626;display:flex;align-items:center;gap:7px; }
+.live-pulse { width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.1s infinite; }
+@keyframes pulse { 50% { opacity:.3; } }
+.live-watch-link { color:#fff;text-decoration:none;margin-left:auto; }
+.studio-bottom { flex-wrap:wrap;gap:14px; }
+.audio-panel { min-width:120px; }
+.audio-header { justify-content:space-between;gap:10px; }
+.stream-settings-group { gap:8px;font-size:12px;color:#aeb4c4; }
+.quality-select { width:auto; }
+.action-buttons { gap:8px; }
+.btn-change-source,.btn-stream { border:0;border-radius:8px;padding:10px 14px;font-weight:800;cursor:pointer; }
+.btn-change-source { background:#292d3b;color:#fff; }
+.btn-stream.start { background:#10b981;color:#fff; }.btn-stream.stop { background:#ef4444;color:#fff; }
+.btn-stream:disabled { opacity:.45;cursor:not-allowed; }
+.studio-chat-panel { min-height:0;display:flex;flex-direction:column;background:#141722;border:1px solid #252a38;border-radius:12px;overflow:hidden; }
+.chat-header { padding:14px;border-bottom:1px solid #272b39; }
+.chat-title { gap:8px;font-weight:750;font-size:13px; }
+.chat-badge { font-size:10px;color:#9ca3af; }.chat-badge.connected { color:#34d399; }
+.chat-messages { flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px; }
+.chat-welcome-msg,.studio-chat-message { font-size:12px;line-height:1.5;padding:10px;background:#1b1f2c;border-radius:8px; }
+.chat-welcome-msg p + p { margin-top:6px; }.text-dim { color:#9ca3af; }
+.studio-chat-message strong { color:#c4b5fd; }.studio-chat-message p { overflow-wrap:anywhere; }
+.chat-composer-form { display:flex;gap:6px;padding:10px;border-top:1px solid #272b39; }
+.chat-composer-form input { flex:1;min-width:0;background:#0b0d13;color:#fff;border:1px solid #33384a;padding:9px;border-radius:7px; }
+.chat-composer-form button { width:36px;border:0;border-radius:7px;background:#7c3aed;color:white; }
+.chat-composer-form button:disabled,.chat-composer-form input:disabled { opacity:.5; }
+.studio-toast { position:fixed;z-index:10;bottom:20px;left:50%;transform:translateX(-50%);max-width:min(92vw,520px);padding:12px 16px;border-radius:9px;background:#202536;box-shadow:0 8px 30px #0008;font-size:13px; }
+.studio-toast.error { background:#7f1d1d; }
+@media(max-width:900px) {
+  body { overflow:auto;height:auto;min-height:100vh; }
+  .studio-layout { grid-template-columns:1fr;height:auto;min-height:100vh; }
+  .studio-main { min-height:70vh; }
+  .studio-chat-panel { min-height:240px; }
+  .preview-viewport { min-height:320px; }
+}
+@media(max-width:620px) {
+  .studio-layout { padding:9px;gap:9px; }
+  .studio-header { align-items:flex-start;gap:8px;flex-wrap:wrap; }
+  .brand-title { font-size:14px; }.brand-subtitle { font-size:10px; }
+  .header-right { width:100%;justify-content:space-between; }
+  .destination-options,.field-row,.stream-info-grid { grid-template-columns:1fr;display:grid; }
+  .studio-bottom { align-items:stretch; }
+  .audio-panel { flex-basis:100%; }
+  .stream-settings-group { flex-basis:100%;justify-content:space-between; }
+  .quality-select { max-width:68%; }
+  .action-buttons { width:100%; }.action-buttons button { flex:1; }
+  .live-watch-link { margin-left:0; }
+}

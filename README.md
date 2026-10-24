@@ -6,7 +6,7 @@
 [![Platform: Chrome | Edge | Brave](https://img.shields.io/badge/Platform-Chrome%20%7C%20Edge%20%7C%20Brave-violet)](https://github.com/umairkhan2582/talkastranger-streamer-extension)
 
 > **Official open-source companion extension for [TalkAStranger](https://talkastranger.com) creators.**  
-> Monitor your live stream, interact with viewer chat, celebrate real-time gift and Spark alerts in a persistent Chrome Side Panel HUD, and broadcast your screen or tab directly into active video streams.
+> Broadcast your screen or tab directly to TalkAStranger Live Streams or a supported Country LIVE lane using the site’s existing live session and WebRTC signaling.
 
 ---
 
@@ -17,10 +17,9 @@
 - **Creator Metrics:** Live viewer counter, total Sparks tally, and active broadcast duration timer.
 - **Sound Alert Toggles:** One-click mute/unmute for synthesized Web Audio gift alerts.
 
-### 💬 Real-Time Stream Chat
-- **Verified Creator Badges:** High-contrast `CREATOR` badge on your messages.
-- **Low-Latency Feed:** Instant chat message updates with automatic auto-scroll lock.
-- **Streamlined Composer:** Quick keyboard sending (`Enter`) with zero tab-switching.
+### 💬 Live Chat
+- View messages received through the existing TalkAStranger live signaling connection.
+- Send comments while signed in and broadcasting.
 
 ### 🎁 Animated Gift & Spark Alerts
 - **Interactive Banners:** Animated drop-down notifications featuring **TASSY** the official mascot.
@@ -28,9 +27,9 @@
 - **Synthesized Audio Chimes:** Built-in Web Audio API alerts that require zero external MP3 assets or audio permissions.
 
 ### 🎥 Broadcaster Studio (Screen & Tab Capture)
-- **WebRTC Screen Sharing:** Choose any browser tab, application window, or entire monitor using native `getDisplayMedia`.
-- **HD Quality Selector:** Fast switching between **720p HD (60 FPS)** and **1080p Full HD**.
-- **Live VU Meter:** Visual microphone / system audio input monitor before going live.
+- Choose a browser tab, application window or display using native `getDisplayMedia`.
+- Send captured audio/video to viewers through the site’s existing per-viewer WebRTC signaling.
+- Choose 720p or 1080p capture preferences. Actual frame rate depends on browser and hardware.
 
 ### ⚡ Quick-Action Toolbar Popover
 - 1-click **Open Side Panel HUD** dock.
@@ -149,6 +148,6 @@ This project is open-source under the terms of the **[MIT License](LICENSE)**.
 
 ## Account sign-in
 
-The extension uses the TalkAStranger account already signed in within a `https://talkastranger.com` browser tab. Open the extension popup and choose **Sign in on TalkAStranger**; after signing in on the site, return to the popup and choose **I’m already signed in**. The extension reads the site's `tas_auth_token` from that page and validates it with the existing read-only `GET /api/auth/me` endpoint. It does not ask for or store your password, change website data, or require a production-server change. If the site session expires, sign in again on the website and refresh the extension status.
+The extension uses the TalkAStranger account already signed in within a `https://talkastranger.com` browser tab. The extension reads the site’s `tas_auth_token` from that page and validates it with `GET /api/auth/me`. It does not ask for or store your password. For live broadcasting, it also uses the site’s existing authenticated live-start endpoint and WebSocket signaling. Starting/stopping a broadcast changes live session state, as expected; it does not require a server restart or website deployment. You must keep Broadcaster Studio open while live. If the browser or network interrupts, the broadcast may stop or reconnect.
 
 The extension package only changes the browser extension. It does not deploy website code or restart any production service.

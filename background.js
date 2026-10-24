@@ -1,16 +1,21 @@
 // TalkAStranger Streamer Companion - Background Service Worker (Manifest V3)
-// Auth is linked from the user's existing TalkAStranger browser session.
-// This extension only validates the session through the site's read-only /api/auth/me route.
-// It does not modify the site, its data, or its services.
+// Coordinates session auth, broadcast state, and inter-window messaging.
 
 let verifiedTokenInMemory = null;
 
 const DEFAULT_STATE = {
   username: "Creator",
   accountId: null,
+  clientId: null,
+  avatar: null,
   authenticated: false,
   authError: null,
   isLive: false,
+  destination: "section", // "section" or "country"
+  countryCode: null,
+  countryName: null,
+  streamTitle: "Live Screen Broadcast",
+  hostClientId: null,
   viewers: 0,
   sparks: 0,
   streamStartTime: null,
@@ -35,7 +40,16 @@ async function validateAndSaveSession(session, force = false) {
   const token = typeof session?.token === "string" ? session.token.trim() : "";
   if (!token) {
     verifiedTokenInMemory = null;
-    const signedOut = { accountId: null, username: "Creator", authenticated: false, authError: null };
+    const signedOut = {
+      accountId: null,
+      clientId: null,
+      username: "Creator",
+      avatar: null,
+      authenticated: false,
+      authError: null,
+      isLive: false,
+      streamStartTime: null,
+    };
     saveState(signedOut, (state) => broadcastToViews({ type: "AUTH_UPDATED", payload: state }));
     return { success: true, signedIn: false };
   }
@@ -49,7 +63,16 @@ async function validateAndSaveSession(session, force = false) {
     });
     if (response.status === 401 || response.status === 403) {
       verifiedTokenInMemory = null;
-      const invalid = { accountId: null, username: "Creator", authenticated: false, authError: "Your TalkAStranger session has expired. Sign in again." };
+      const invalid = {
+        accountId: null,
+        clientId: null,
+        username: "Creator",
+        avatar: null,
+        authenticated: false,
+        authError: "Your TalkAStranger session has expired. Sign in again.",
+        isLive: false,
+        streamStartTime: null,
+      };
       saveState(invalid, (state) => broadcastToViews({ type: "AUTH_UPDATED", payload: state }));
       return { success: false, signedIn: false, error: invalid.authError };
     }
@@ -58,15 +81,21 @@ async function validateAndSaveSession(session, force = false) {
     const user = body?.user;
     if (!user?.id) throw new Error("TalkAStranger returned an incomplete account profile.");
 
+    const clientId = user.clientId ? String(user.clientId) : null;
+    if (!clientId) throw new Error("Your TalkAStranger account has no linked live-stream identity. Please open the site and contact support before broadcasting.");
+
     verifiedTokenInMemory = token;
     const update = {
       accountId: String(user.id),
-      username: String(user.name || session.nickname || "Creator"),
+      clientId: clientId ? String(clientId) : null,
+      token: undefined,
+      username: String(user.name || session?.nickname || "Creator"),
+      avatar: user.avatar || null,
       authenticated: true,
       authError: null,
     };
     saveState(update, (state) => broadcastToViews({ type: "AUTH_UPDATED", payload: state }));
-    return { success: true, signedIn: true, username: update.username };
+    return { success: true, signedIn: true, username: update.username, clientId: update.clientId };
   } catch (error) {
     const message = error?.message || "Could not verify your TalkAStranger session. Check your connection and retry.";
     saveState({ authError: message }, (state) => broadcastToViews({ type: "AUTH_UPDATED", payload: state }));
@@ -81,6 +110,20 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
   if (req.type === "GET_STATE") {
     getState(sendResponse);
+    return true;
+  }
+
+  if (req.type === "GET_BROADCAST_AUTH") {
+    getState((state) => {
+      sendResponse({
+        success: true,
+        token: verifiedTokenInMemory,
+        clientId: state.clientId,
+        username: state.username,
+        avatar: state.avatar,
+        authenticated: !!state.authenticated && !!verifiedTokenInMemory,
+      });
+    });
     return true;
   }
 
@@ -111,23 +154,58 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
     return true;
   }
 
-  if (req.type === "LOGOUT") {
-    verifiedTokenInMemory = null;
-    const signedOut = { accountId: null, username: "Creator", authenticated: false, authError: null, isLive: false, streamStartTime: null };
-    saveState(signedOut, (state) => {
-      broadcastToViews({ type: "AUTH_UPDATED", payload: state });
-      sendResponse({ success: true, state });
+  if (req.type === "BROADCAST_STATE_CHANGED") {
+    const payload = req.payload || {};
+    saveState({
+      isLive: !!payload.isLive,
+      destination: payload.destination || "section",
+      countryCode: payload.countryCode || null,
+      countryName: payload.countryName || null,
+      streamTitle: payload.title || "Live Screen Broadcast",
+      hostClientId: payload.hostClientId || null,
+      viewers: typeof payload.viewers === "number" ? payload.viewers : 0,
+      streamStartTime: payload.streamStartTime || null,
+    }, (next) => {
+      broadcastToViews({ type: "LIVE_STATE_CHANGED", payload: next });
+      sendResponse({ success: true, state: next });
     });
     return true;
   }
 
-  if (req.type === "SEND_CHAT") {
-    sendResponse({ success: false, error: "Live chat is not connected in this extension build." });
+  if (req.type === "STOP_BROADCAST") {
+    broadcastToViews({ type: "COMMAND_STOP_BROADCAST" });
+    sendResponse({ success: true });
     return true;
   }
 
-  if (req.type === "TOGGLE_LIVE") {
-    sendResponse({ success: false, error: "Start or manage a live broadcast from TalkAStranger Creator Studio." });
+  if (req.type === "SEND_CHAT") {
+    broadcastToViews({ type: "COMMAND_SEND_CHAT", payload: req.payload });
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (req.type === "LIVE_EVENT") {
+    broadcastToViews({ type: "LIVE_EVENT", payload: req.payload });
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (req.type === "LOGOUT") {
+    verifiedTokenInMemory = null;
+    const signedOut = {
+      accountId: null,
+      clientId: null,
+      username: "Creator",
+      avatar: null,
+      authenticated: false,
+      authError: null,
+      isLive: false,
+      streamStartTime: null,
+    };
+    saveState(signedOut, (state) => {
+      broadcastToViews({ type: "AUTH_UPDATED", payload: state });
+      sendResponse({ success: true, state });
+    });
     return true;
   }
 
@@ -142,7 +220,12 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
   }
 
   if (req.type === "OPEN_CAPTURE") {
-    chrome.windows.create({ url: chrome.runtime.getURL("capture/capture.html"), type: "popup", width: 900, height: 680 }, (win) => {
+    chrome.windows.create({
+      url: chrome.runtime.getURL("capture/capture.html"),
+      type: "popup",
+      width: 1040,
+      height: 760
+    }, (win) => {
       sendResponse({ success: true, windowId: win?.id });
     });
     return true;

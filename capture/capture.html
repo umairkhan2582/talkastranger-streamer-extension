@@ -2,55 +2,198 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TalkAStranger Screen & Tab Studio</title>
   <link rel="stylesheet" href="capture.css">
 </head>
 <body>
-  <div class="studio-container">
-    <div class="studio-header">
-      <div class="studio-title">
-        <img src="../icons/logo.svg" width="28" height="28" alt="Logo" style="flex-shrink:0;">
-        <h2>TalkAStranger Broadcaster Studio</h2>
-      </div>
-      <div class="studio-status" id="streamStatusBadge">READY TO STREAM</div>
-    </div>
+  <div class="studio-layout">
+    <!-- Main Broadcast Center -->
+    <main class="studio-main">
+      <!-- Top Navigation & Status -->
+      <header class="studio-header">
+        <div class="studio-brand">
+          <img src="../icons/logo.svg" width="30" height="30" alt="TalkAStranger Logo" class="brand-logo">
+          <div>
+            <h1 class="brand-title">TalkAStranger Broadcaster Studio</h1>
+            <p class="brand-subtitle">Stream your screen directly to TalkAStranger live viewers</p>
+          </div>
+        </div>
 
-    <div class="preview-viewport">
-      <video id="previewVideo" autoplay muted playsinline></video>
-      <div id="noStreamPlaceholder" class="placeholder">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
-        <h3>No Video Source Selected</h3>
-        <p>Select a browser tab, app window, or your whole display to broadcast directly.</p>
-        <button class="btn-select-source" id="btnSelectSource">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
-          Select Screen or Tab
-        </button>
-      </div>
-      <div class="live-tag hidden" id="liveTag">● LIVE STREAMING</div>
-    </div>
+        <div class="header-right">
+          <div class="account-pill" id="accountPill">
+            <span class="account-dot" id="accountDot"></span>
+            <span id="accountLabel">Checking account…</span>
+            <button id="btnConnectAccount" class="btn-text" type="button" hidden>Connect</button>
+          </div>
+          <div class="studio-status" id="streamStatusBadge">OFFLINE</div>
+        </div>
+      </header>
 
-    <!-- Audio & Stream Controls -->
-    <div class="studio-bottom">
-      <div class="audio-panel">
-        <span class="panel-label">Live Audio Level</span>
-        <div class="meter-bar-container">
-          <div class="meter-bar-fill" id="audioMeterFill"></div>
+      <!-- Broadcast Destination & Config Card -->
+      <section class="destination-card" id="destinationCard">
+        <div class="destination-header">
+          <span class="card-label">WHERE DO YOU WANT TO BROADCAST?</span>
+          <span class="card-tip">Choose your broadcast target on TalkAStranger</span>
+        </div>
+
+        <div class="destination-options">
+          <label class="destination-option active" id="optLiveSection">
+            <input type="radio" name="broadcastDestination" value="section" checked>
+            <div class="option-content">
+              <div class="option-icon">🌐</div>
+              <div class="option-text">
+                <span class="option-title">Live Streams Section</span>
+                <span class="option-desc">Broadcast to the global feed at talkastranger.com/streams</span>
+              </div>
+            </div>
+          </label>
+
+          <label class="destination-option" id="optCountryLane">
+            <input type="radio" name="broadcastDestination" value="country">
+            <div class="option-content">
+              <div class="option-icon">🏳️</div>
+              <div class="option-text">
+                <span class="option-title">Country LIVE Lanes</span>
+                <span class="option-desc">Broadcast to country-specific lanes at talkastranger.com/country/...</span>
+              </div>
+            </div>
+          </label>
+        </div>
+
+        <!-- Country Selection Details (shown when Country LIVE Lanes selected) -->
+        <div class="country-details" id="countryDetailsPanel" style="display: none;">
+          <div class="field-row">
+            <div class="field-group">
+              <label for="countrySelect">Select Target Country:</label>
+              <select id="countrySelect" class="form-select">
+                <!-- Populated dynamically via JS -->
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="durationSelect">Match / Lane Duration:</label>
+              <select id="durationSelect" class="form-select">
+                <option value="20" selected>20 minutes (Recommended)</option>
+                <option value="10">10 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="50">50 minutes</option>
+                <option value="75">75 minutes</option>
+              </select>
+            </div>
+          </div>
+          <p class="destination-hint" id="countryDestinationHint">Your stream will appear on the selected country's live lane and match feed.</p>
+        </div>
+
+        <!-- Stream Title & Description Inputs -->
+        <div class="stream-info-grid">
+          <div class="field-group flex-2">
+            <label for="streamTitle">Stream Title:</label>
+            <input type="text" id="streamTitle" class="form-input" placeholder="e.g. Chill Screen Share & Gaming" value="Live Screen Broadcast">
+          </div>
+          <div class="field-group flex-3">
+            <label for="streamDesc">Description (Optional):</label>
+            <input type="text" id="streamDesc" class="form-input" placeholder="What are you sharing?">
+          </div>
+        </div>
+      </section>
+
+      <!-- Video Preview Viewport -->
+      <div class="preview-viewport" id="previewViewport">
+        <video id="previewVideo" autoplay muted playsinline></video>
+
+        <!-- Placeholder when no screen is captured -->
+        <div id="noStreamPlaceholder" class="placeholder">
+          <div class="placeholder-icon-wrap">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="14" x="2" y="3" rx="2"/>
+              <line x1="8" x2="16" y1="21" y2="21"/>
+              <line x1="12" x2="12" y1="17" y2="21"/>
+            </svg>
+          </div>
+          <h3>Select Your Broadcast Source</h3>
+          <p>Choose an app window, browser tab, or your full display to share with live viewers.</p>
+          <button class="btn-select-source" id="btnSelectSource" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m22 8-6 4 6 4V8Z"/>
+              <rect width="14" height="12" x="2" y="6" rx="2"/>
+            </svg>
+            Select Screen or Tab
+          </button>
+        </div>
+
+        <!-- Live Overlay HUD over the video -->
+        <div class="live-overlay-hud hidden" id="liveOverlayHud">
+          <div class="live-pill">
+            <span class="live-pulse"></span>
+            <span>BROADCASTING LIVE</span>
+          </div>
+          <div class="live-destination-pill" id="liveDestinationPill">🌐 Live Streams Section</div>
+          <div class="live-stat-pill" id="liveViewersPill">👁️ 0 viewers</div>
+          <div class="live-stat-pill" id="liveTimerPill">⏱️ 00:00:00</div>
+          <a id="btnOpenLiveWatch" href="https://talkastranger.com/streams" target="_blank" class="live-watch-link">
+            Watch Stream on TalkAStranger ↗
+          </a>
         </div>
       </div>
 
-      <div class="resolution-selector">
-        <label for="qualitySelect">Quality:</label>
-        <select id="qualitySelect">
-          <option value="720p" selected>720p HD (60 FPS) — Recommended</option>
-          <option value="1080p">1080p Full HD (60 FPS)</option>
-        </select>
+      <!-- Studio Bottom Bar -->
+      <footer class="studio-bottom">
+        <div class="audio-panel">
+          <div class="audio-header">
+            <span class="panel-label">Live Audio Level</span>
+            <span class="audio-indicator" id="audioStateLabel">No audio detected</span>
+          </div>
+          <div class="meter-bar-container">
+            <div class="meter-bar-fill" id="audioMeterFill"></div>
+          </div>
+        </div>
+
+        <div class="stream-settings-group">
+          <label for="qualitySelect">Quality:</label>
+          <select id="qualitySelect" class="quality-select">
+            <option value="720p" selected>720p HD (60 FPS) — Recommended</option>
+            <option value="1080p">1080p Full HD (60 FPS)</option>
+          </select>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn-change-source hidden" id="btnChangeSource" type="button">Change Window</button>
+          <button class="btn-stream start" id="btnToggleBroadcast" disabled type="button">Start Broadcast</button>
+        </div>
+      </footer>
+    </main>
+
+    <!-- Side Chat & Real-Time Alerts Drawer -->
+    <aside class="studio-chat-panel">
+      <div class="chat-header">
+        <div class="chat-title">
+          <img src="../icons/tassy.svg" width="20" height="20" alt="Tassy Mascot">
+          <span>Live Chat & Alerts</span>
+        </div>
+        <span class="chat-badge" id="chatConnectionStatus">Offline</span>
       </div>
 
-      <div class="action-buttons">
-        <button class="btn-stream start" id="btnToggleBroadcast" disabled>Start Broadcast</button>
+      <div class="chat-messages" id="studioChatFeed">
+        <div class="chat-welcome-msg">
+          <p>👋 Welcome to TalkAStranger Screen Studio!</p>
+          <p class="text-dim">When you go live, comments and gifts from TalkAStranger viewers will appear here in real time.</p>
+        </div>
       </div>
-    </div>
+
+      <form class="chat-composer-form" id="studioChatForm">
+        <input type="text" id="studioChatInput" placeholder="Send chat to your viewers…" disabled autocomplete="off">
+        <button type="submit" id="btnSendStudioChat" disabled title="Send Message">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m22 2-7 20-4-9-9-4Z"/>
+            <path d="M22 2 11 13"/>
+          </svg>
+        </button>
+      </form>
+    </aside>
   </div>
+
+  <div id="studioToast" class="studio-toast hidden"></div>
+
   <script src="capture.js"></script>
 </body>
 </html>

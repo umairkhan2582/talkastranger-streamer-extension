@@ -88,8 +88,8 @@ function syncUI(state) {
   const signedIn = !!state.authenticated;
   authStatus.textContent = signedIn ? `Signed in as @${state.username || "Creator"}` : "Sign in on TalkAStranger to use your account";
   authAction.textContent = signedIn ? "Sign out" : "Sign in";
-  chatInput.disabled = true;
-  chatInput.placeholder = signedIn ? "Live chat integration unavailable" : "Sign in to TalkAStranger first";
+  chatInput.disabled = !signedIn || !isLive;
+  chatInput.placeholder = !signedIn ? "Sign in to TalkAStranger first" : isLive ? "Send a live comment…" : "Go live to chat with viewers";
   if (connectionStatus) connectionStatus.textContent = signedIn ? "Account verified" : "Sign in required";
 }
 
@@ -165,8 +165,15 @@ function appendChatMessage(author, text, badge) {
 
 // Controls
 btnGoLive.addEventListener("click", () => {
-  showToast("To start a real broadcast, use the TalkAStranger website. Screen Studio is a local preview only.");
-  chrome.tabs.create({ url: "https://talkastranger.com/creator-studio" });
+  if (isLive) {
+    chrome.runtime.sendMessage({ type: "STOP_BROADCAST" }, (result) => {
+      if (chrome.runtime.lastError || !result?.success) showToast("Could not stop the broadcast from this panel.");
+    });
+    return;
+  }
+  chrome.runtime.sendMessage({ type: "OPEN_CAPTURE" }, (result) => {
+    if (chrome.runtime.lastError || !result?.success) showToast(result?.error || "Could not open Broadcaster Studio.");
+  });
 });
 
 btnCopyOverlay.addEventListener("click", () => {
