@@ -11,6 +11,10 @@ const DEFAULT_STATE = {
   authenticated: false,
   authError: null,
   isLive: false,
+  isYouTubeLive: false,
+  isDualLive: false,
+  youtubeWatchUrl: null,
+  youtubeSessionId: null,
   destination: "section", // "section" or "country"
   countryCode: null,
   countryName: null,
@@ -48,6 +52,10 @@ async function validateAndSaveSession(session, force = false) {
       authenticated: false,
       authError: null,
       isLive: false,
+      isYouTubeLive: false,
+      isDualLive: false,
+      youtubeWatchUrl: null,
+      youtubeSessionId: null,
       streamStartTime: null,
     };
     saveState(signedOut, (state) => broadcastToViews({ type: "AUTH_UPDATED", payload: state }));
@@ -158,6 +166,10 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
     const payload = req.payload || {};
     saveState({
       isLive: !!payload.isLive,
+      isYouTubeLive: !!payload.isYouTubeLive,
+      isDualLive: !!payload.isDualLive,
+      youtubeWatchUrl: payload.youtubeWatchUrl || null,
+      youtubeSessionId: payload.youtubeSessionId || null,
       destination: payload.destination || "section",
       countryCode: payload.countryCode || null,
       countryName: payload.countryName || null,
@@ -200,6 +212,10 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
       authenticated: false,
       authError: null,
       isLive: false,
+      isYouTubeLive: false,
+      isDualLive: false,
+      youtubeWatchUrl: null,
+      youtubeSessionId: null,
       streamStartTime: null,
     };
     saveState(signedOut, (state) => {
@@ -220,8 +236,9 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
   }
 
   if (req.type === "OPEN_CAPTURE") {
+    const query = req.payload?.mode === "dual" ? "?mode=dual" : "";
     chrome.windows.create({
-      url: chrome.runtime.getURL("capture/capture.html"),
+      url: chrome.runtime.getURL("capture/capture.html" + query),
       type: "popup",
       width: 1040,
       height: 760

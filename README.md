@@ -31,6 +31,12 @@
 - Send captured audio/video to viewers through the site’s existing per-viewer WebRTC signaling.
 - Choose 720p or 1080p capture preferences. Actual frame rate depends on browser and hardware.
 
+### 🔴 Simultaneous Dual Broadcast (YouTube Live + TalkAStranger)
+- **Go Live on Both:** One-click simultaneous broadcast to both TalkAStranger and your linked YouTube Live channel.
+- **Unified Media Pipeline:** A single screen capture feeds TalkAStranger WebRTC viewer peers and high-bitrate YouTube RTMP relay via MediaRecorder.
+- **Channel Link Detection:** In-studio YouTube account linking status pill via `/api/youtube/status` and `/api/youtube/auth-url`.
+- **Live HUD Links:** Real-time clickable YouTube stream watch link alongside TalkAStranger viewer link.
+
 ### ⚡ Quick-Action Toolbar Popover
 - 1-click **Open Side Panel HUD** dock.
 - 1-click **Launch Broadcaster Studio**.

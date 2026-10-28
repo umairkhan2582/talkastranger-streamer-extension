@@ -293,3 +293,58 @@ body {
   .action-buttons { width:100%; }.action-buttons button { flex:1; }
   .live-watch-link { margin-left:0; }
 }
+
+/* YouTube & Dual Broadcast styles */
+.yt-icon {
+  flex-shrink: 0;
+}
+.yt-pill {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+}
+.yt-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6b7280;
+}
+.yt-dot.online {
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+}
+.btn-stream-dual {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  background: linear-gradient(135deg, #ef4444 0%, #7c3aed 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);
+}
+.btn-stream-dual:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.btn-stream-dual.stop {
+  background: #dc2626;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
+}
+.btn-stream-dual:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.yt-watch-link {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border: 1px solid rgba(239, 68, 68, 0.5) !important;
+  color: #fca5a5 !important;
+}
+.yt-watch-link:hover {
+  background: rgba(239, 68, 68, 0.35) !important;
+  color: #fff !important;
+}

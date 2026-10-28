@@ -176,6 +176,21 @@ btnGoLive.addEventListener("click", () => {
   });
 });
 
+const btnGoLiveDual = document.getElementById("btnGoLiveDual");
+if (btnGoLiveDual) {
+  btnGoLiveDual.addEventListener("click", () => {
+    if (isLive) {
+      chrome.runtime.sendMessage({ type: "STOP_BROADCAST" }, (result) => {
+        if (chrome.runtime.lastError || !result?.success) showToast("Could not stop the broadcast from this panel.");
+      });
+      return;
+    }
+    chrome.runtime.sendMessage({ type: "OPEN_CAPTURE", payload: { mode: "dual" } }, (result) => {
+      if (chrome.runtime.lastError || !result?.success) showToast(result?.error || "Could not open Broadcaster Studio.");
+    });
+  });
+}
+
 btnCopyOverlay.addEventListener("click", () => {
   const username = usernameLabel.textContent.replace("@", "");
   const url = `https://talkastranger.com/overlay.html?streamerUsername=${encodeURIComponent(username)}`;

@@ -44,6 +44,13 @@ let viewerPeerIds = new Set();
 let authState = { authenticated: false };
 let broadcastConfig = null;
 let countryLiveAvailable = false;
+let isYouTubeLive = false;
+let isDualBroadcasting = false;
+let ytSessionId = null;
+let ytWatchUrl = null;
+let ytWs = null;
+let ytRecorder = null;
+let ytConnected = false;
 
 const $ = (id) => document.getElementById(id);
 const previewVideo = $("previewVideo");
@@ -51,6 +58,8 @@ const placeholder = $("noStreamPlaceholder");
 const btnSelectSource = $("btnSelectSource");
 const btnChangeSource = $("btnChangeSource");
 const btnToggleBroadcast = $("btnToggleBroadcast");
+const btnGoLiveBoth = $("btnGoLiveBoth");
+const goLiveBothText = $("goLiveBothText");
 const streamStatusBadge = $("streamStatusBadge");
 const audioMeterFill = $("audioMeterFill");
 const audioStateLabel = $("audioStateLabel");
@@ -58,12 +67,17 @@ const destinationDetails = $("countryDetailsPanel");
 const countrySelect = $("countrySelect");
 const countryLaneOption = $("optCountryLane");
 const btnOpenLiveWatch = $("btnOpenLiveWatch");
+const btnOpenYouTubeWatch = $("btnOpenYouTubeWatch");
+const liveStatusText = $("liveStatusText");
 const studioChatFeed = $("studioChatFeed");
 const studioChatInput = $("studioChatInput");
 const studioChatForm = $("studioChatForm");
 const accountLabel = $("accountLabel");
 const accountDot = $("accountDot");
 const btnConnectAccount = $("btnConnectAccount");
+const ytAccountLabel = $("ytAccountLabel");
+const ytAccountDot = $("ytAccountDot");
+const btnConnectYouTube = $("btnConnectYouTube");
 
 function sendRuntime(message) {
   return new Promise((resolve) => {
@@ -96,13 +110,266 @@ function setAccount(state) {
   accountLabel.textContent = signedIn ? `Signed in as @${authState.username || "Creator"}` : "Sign in to broadcast";
   accountDot.classList.toggle("online", signedIn);
   btnConnectAccount.hidden = signedIn;
+  if (signedIn && authState.token) {
+    checkYouTubeStatus(authState.token);
+  } else {
+    setYouTubeAccountState(false);
+  }
   updateBroadcastButton();
 }
 
 function updateBroadcastButton() {
   btnToggleBroadcast.disabled = !activeStream || (!isBroadcasting && !authState.authenticated);
-  btnToggleBroadcast.textContent = isBroadcasting ? "Stop Broadcast" : !authState.authenticated ? "Sign in to Broadcast" : "Start Broadcast";
+  btnToggleBroadcast.textContent = isBroadcasting
+    ? (isDualBroadcasting ? "Stop TAS Broadcast" : "Stop Broadcast")
+    : !authState.authenticated ? "Sign in to Broadcast" : "Start Broadcast";
   btnToggleBroadcast.className = `btn-stream ${isBroadcasting ? "stop" : "start"}`;
+
+  if (btnGoLiveBoth) {
+    btnGoLiveBoth.disabled = !activeStream || (!isBroadcasting && !authState.authenticated);
+    if (isDualBroadcasting) {
+      btnGoLiveBoth.className = "btn-stream-dual stop";
+      if (goLiveBothText) goLiveBothText.textContent = "Stop Both Broadcasts";
+    } else {
+      btnGoLiveBoth.className = "btn-stream-dual start";
+      if (goLiveBothText) goLiveBothText.textContent = "Go Live on Both YouTube and TalkAStranger";
+    }
+  }
+}
+
+async function checkYouTubeStatus(token) {
+  if (!token) {
+    setYouTubeAccountState(false);
+    return { connected: false };
+  }
+  try {
+    const response = await fetch(`${SITE}/api/youtube/status`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+      credentials: "omit",
+    });
+    const data = response.ok ? await response.json() : { connected: false };
+    setYouTubeAccountState(!!data?.connected);
+    return data;
+  } catch {
+    setYouTubeAccountState(false);
+    return { connected: false };
+  }
+}
+
+function setYouTubeAccountState(connected) {
+  ytConnected = !!connected;
+  if (ytAccountLabel) {
+    ytAccountLabel.textContent = connected ? "YouTube: Connected" : "YouTube: Not Linked";
+  }
+  if (ytAccountDot) {
+    ytAccountDot.classList.toggle("online", connected);
+  }
+  if (btnConnectYouTube) {
+    btnConnectYouTube.hidden = connected;
+  }
+}
+
+async function startYouTubeBroadcast(token, title, description) {
+  const response = await fetch(`${SITE}/api/youtube/go-live`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "omit",
+    body: JSON.stringify({
+      title: title || "Live Screen Broadcast",
+      description: description || "Broadcasting live via TalkAStranger Streamer Companion",
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result?.sessionId) {
+    throw new Error(result?.error || `Could not start YouTube live (${response.status}).`);
+  }
+  return result;
+}
+
+function openYouTubeSocket(sessionId, stream) {
+  if (ytWs) {
+    try { ytWs.close(); } catch {}
+    ytWs = null;
+  }
+  if (ytRecorder && ytRecorder.state !== "inactive") {
+    try { ytRecorder.stop(); } catch {}
+    ytRecorder = null;
+  }
+  const proto = SITE.startsWith("https") ? "wss" : "ws";
+  const host = new URL(SITE).host;
+  const socket = new WebSocket(`${proto}://${host}/ws/youtube-live/${sessionId}`);
+  ytWs = socket;
+
+  socket.onopen = () => {
+    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
+      ? "video/webm;codecs=vp8,opus"
+      : "video/webm";
+    try {
+      const mr = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 4_500_000 });
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0 && socket.readyState === WebSocket.OPEN) {
+          if (socket.bufferedAmount < 4_000_000) {
+            socket.send(e.data);
+          } else {
+            console.warn("[yt-live] WS backpressure — dropping chunk");
+          }
+        }
+      };
+      mr.start(500);
+      ytRecorder = mr;
+    } catch (err) {
+      console.error("[yt-live] Error starting MediaRecorder:", err);
+      toast("Could not start YouTube stream encoder: " + err.message, true);
+    }
+  };
+
+  socket.onerror = (e) => {
+    console.error("[yt-live] YouTube WebSocket error", e);
+  };
+
+  socket.onclose = () => {
+    if (ytRecorder && ytRecorder.state !== "inactive") {
+      try { ytRecorder.stop(); } catch {}
+      ytRecorder = null;
+    }
+    ytWs = null;
+  };
+}
+
+async function stopYouTubeBroadcast(token, sessionId) {
+  if (ytRecorder && ytRecorder.state !== "inactive") {
+    try { ytRecorder.stop(); } catch {}
+    ytRecorder = null;
+  }
+  if (ytWs) {
+    const s = ytWs;
+    ytWs = null;
+    try { s.close(); } catch {}
+  }
+  if (sessionId) {
+    try {
+      await fetch(`${SITE}/api/youtube/end-live/${sessionId}`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "omit",
+      });
+    } catch (e) {
+      console.warn("[yt-live] Error calling end-live:", e);
+    }
+  }
+  isYouTubeLive = false;
+  ytSessionId = null;
+  ytWatchUrl = null;
+  if (btnOpenYouTubeWatch) btnOpenYouTubeWatch.classList.add("hidden");
+}
+
+async function startDualBroadcast() {
+  if (isDualBroadcasting || isBroadcasting) {
+    return stopAllBroadcasts();
+  }
+  if (!activeStream) return toast("Select a screen, app window, or browser tab first.", true);
+
+  setStatus("VERIFYING ACCOUNT…");
+  btnToggleBroadcast.disabled = true;
+  if (btnGoLiveBoth) btnGoLiveBoth.disabled = true;
+
+  const auth = await requestAuth();
+  if (!auth?.authenticated || !auth.token || !auth.clientId) {
+    setAccount({ ...(authState || {}), authenticated: false });
+    setStatus("SIGN IN REQUIRED");
+    toast("Sign in to TalkAStranger in a browser tab, then retry.", true);
+    return;
+  }
+  setAccount(auth);
+
+  // 1. Verify YouTube status
+  setStatus("CHECKING YOUTUBE…");
+  const yt = await checkYouTubeStatus(auth.token);
+  if (!yt?.connected) {
+    setStatus("YOUTUBE LINK REQUIRED");
+    updateBroadcastButton();
+    try {
+      const authData = await fetch(`${SITE}/api/youtube/auth-url`, {
+        headers: { Authorization: `Bearer ${auth.token}` },
+        cache: "no-store",
+        credentials: "omit",
+      }).then((r) => r.json());
+      if (authData?.url) {
+        chrome.tabs.create({ url: authData.url });
+        toast("Please link your YouTube account in the opened window, then click 'Go Live on Both' again.");
+      } else {
+        toast("YouTube connection link could not be generated.", true);
+      }
+    } catch {
+      toast("Could not connect to YouTube service. Check connection.", true);
+    }
+    return;
+  }
+
+  // 2. Start YouTube live session
+  setStatus("STARTING YOUTUBE LIVE…");
+  const title = $("streamTitle").value.trim().slice(0, 120) || "Live Screen Broadcast";
+  const desc = $("streamDesc").value.trim().slice(0, 300) || "Live on TalkAStranger & YouTube";
+
+  let ytData;
+  try {
+    ytData = await startYouTubeBroadcast(auth.token, title, desc);
+    ytSessionId = ytData.sessionId;
+    ytWatchUrl = ytData.watchUrl;
+    isYouTubeLive = true;
+    openYouTubeSocket(ytSessionId, activeStream);
+  } catch (err) {
+    updateBroadcastButton();
+    setStatus("YOUTUBE LIVE FAILED");
+    return toast(err.message || "Failed to start YouTube live.", true);
+  }
+
+  // 3. Start TalkAStranger live session
+  setStatus("STARTING TALKASTRANGER LIVE…");
+  try {
+    isDualBroadcasting = true;
+    await startBroadcast();
+  } catch (tasErr) {
+    await stopYouTubeBroadcast(auth.token, ytSessionId);
+    isDualBroadcasting = false;
+    isYouTubeLive = false;
+    updateBroadcastButton();
+    return;
+  }
+
+  showDualLiveState();
+  broadcastRuntimeState();
+  toast("You're live on BOTH YouTube and TalkAStranger!");
+}
+
+function showDualLiveState() {
+  showLiveState();
+  if (liveStatusText) liveStatusText.textContent = "BROADCASTING TO TALKASTRANGER & YOUTUBE";
+  if (btnOpenYouTubeWatch && ytWatchUrl) {
+    btnOpenYouTubeWatch.href = ytWatchUrl;
+    btnOpenYouTubeWatch.classList.remove("hidden");
+  }
+  const country = selectedDestination() === "country" ? COUNTRIES.find(([code]) => code === countrySelect.value) : null;
+  $("liveDestinationPill").textContent = selectedDestination() === "country" && country
+    ? `${country[2]} ${country[1]} + 🔴 YouTube`
+    : "🌐 Live Streams + 🔴 YouTube";
+  updateBroadcastButton();
+}
+
+async function stopAllBroadcasts(reason = "All broadcasts ended.") {
+  const token = broadcastConfig?.token || authState?.token;
+  const sid = ytSessionId;
+  if (isYouTubeLive || sid) {
+    await stopYouTubeBroadcast(token, sid);
+  }
+  isDualBroadcasting = false;
+  isYouTubeLive = false;
+  if (btnOpenYouTubeWatch) btnOpenYouTubeWatch.classList.add("hidden");
+  await stopBroadcast(reason);
 }
 
 function selectedDestination() {
@@ -488,6 +755,10 @@ function showLiveState() {
 function broadcastRuntimeState() {
   sendRuntime({ type: "BROADCAST_STATE_CHANGED", payload: {
     isLive: isBroadcasting,
+    isYouTubeLive: isYouTubeLive,
+    isDualLive: isDualBroadcasting,
+    youtubeWatchUrl: ytWatchUrl,
+    youtubeSessionId: ytSessionId,
     destination: broadcastConfig?.destination || "section",
     countryCode: broadcastConfig?.countryCode || null,
     countryName: broadcastConfig?.countryName || null,
@@ -499,6 +770,14 @@ function broadcastRuntimeState() {
 }
 
 async function stopBroadcast(reason = "Broadcast ended.", skipStopApi = false) {
+  if (isYouTubeLive || ytSessionId) {
+    const token = broadcastConfig?.token || authState?.token;
+    void stopYouTubeBroadcast(token, ytSessionId);
+  }
+  isDualBroadcasting = false;
+  isYouTubeLive = false;
+  if (btnOpenYouTubeWatch) btnOpenYouTubeWatch.classList.add("hidden");
+  if (liveStatusText) liveStatusText.textContent = "BROADCASTING LIVE";
   clearInterval(pingInterval);
   clearInterval(timerInterval);
   clearTimeout(reconnectTimer);
@@ -557,7 +836,7 @@ async function sendChat(message) {
 }
 
 function handleHudMessage(message) {
-  if (message.type === "COMMAND_STOP_BROADCAST") stopBroadcast("Broadcast stopped from the HUD.");
+  if (message.type === "COMMAND_STOP_BROADCAST") stopAllBroadcasts("Broadcast stopped from the HUD.");
   if (message.type === "COMMAND_SEND_CHAT") sendChat(message.payload?.message);
 }
 
@@ -572,7 +851,32 @@ async function init() {
     await selectSource();
   });
   btnToggleBroadcast.addEventListener("click", () => isBroadcasting ? stopBroadcast() : startBroadcast());
+  if (btnGoLiveBoth) {
+    btnGoLiveBoth.addEventListener("click", () => isDualBroadcasting ? stopAllBroadcasts() : startDualBroadcast());
+  }
   btnConnectAccount.addEventListener("click", () => chrome.tabs.create({ url: `${SITE}/` }));
+  if (btnConnectYouTube) {
+    btnConnectYouTube.addEventListener("click", async () => {
+      const auth = await requestAuth();
+      if (!auth?.token) return toast("Sign in to TalkAStranger first.", true);
+      try {
+        const data = await fetch(`${SITE}/api/youtube/auth-url`, {
+          headers: { Authorization: `Bearer ${auth.token}` },
+          cache: "no-store",
+          credentials: "omit",
+        }).then((r) => r.json());
+        if (data?.url) chrome.tabs.create({ url: data.url });
+        else toast("Could not generate YouTube auth link.", true);
+      } catch {
+        toast("Could not contact YouTube auth service.", true);
+      }
+    });
+  }
+
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("mode") === "dual") {
+    toast("Dual broadcast ready: Select a screen or tab, then click 'Go Live on Both YouTube and TalkAStranger'.");
+  }
   studioChatForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const value = studioChatInput.value;
