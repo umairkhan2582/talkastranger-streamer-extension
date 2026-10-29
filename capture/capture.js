@@ -653,9 +653,15 @@ async function openHostSocket() {
       return;
     }
     if (message.type === "live_chat") {
-      appendChat(message.nickname || "Viewer", message.message || "");
-      return;
-    }
+  appendChat(message.nickname || "Viewer", message.message || "", "", "tas");
+  try {
+    chrome.runtime.sendMessage({
+      type: "LIVE_EVENT",
+      payload: { type: "live_chat", user: message.nickname || "Viewer", text: message.message || "", source: "tas" }
+    }, () => void chrome.runtime.lastError);
+  } catch {}
+  return;
+}
     if (message.type === "live_cohost_request") {
       appendChat("System", `${message.peerNickname || "A guest"} requested to join your live video.`);
       toast("A guest requested to join your broadcast. Accept/decline is available on TalkAStranger.");
@@ -815,24 +821,64 @@ async function stopBroadcast(reason = "Broadcast ended.", skipStopApi = false) {
   broadcastRuntimeState();
 }
 
-function appendChat(author, text) {
+function appendChat(author, text, badge, source) {
   const row = document.createElement("div");
   row.className = "studio-chat-message";
+  if (badge === "GIFT" || badge === "SPARKS") {
+    row.classList.add("gift-highlight");
+  }
+
+  const titleWrap = document.createElement("div");
+  titleWrap.style.display = "flex";
+  titleWrap.style.alignItems = "center";
+  titleWrap.style.gap = "4px";
+
+  // Dual source badge
+  if (source === "youtube") {
+    const srcEl = document.createElement("span");
+    srcEl.className = "badge-source-yt";
+    srcEl.textContent = "YouTube";
+    titleWrap.appendChild(srcEl);
+  } else {
+    const srcEl = document.createElement("span");
+    srcEl.className = "badge-source-tas";
+    srcEl.textContent = "TAS";
+    titleWrap.appendChild(srcEl);
+  }
+
+  if (badge === "CREATOR") {
+    const badgeEl = document.createElement("span");
+    badgeEl.className = "badge-source-creator";
+    badgeEl.textContent = "Host";
+    titleWrap.appendChild(badgeEl);
+  }
+
   const title = document.createElement("strong");
   title.textContent = author;
+  titleWrap.appendChild(title);
+
   const body = document.createElement("p");
   body.textContent = text;
-  row.append(title, body);
+  body.style.margin = "2px 0 0 0";
+
+  row.append(titleWrap, body);
   studioChatFeed.appendChild(row);
-  while (studioChatFeed.children.length > 70) studioChatFeed.firstElementChild.remove();
+  while (studioChatFeed.children.length > 80) studioChatFeed.firstElementChild.remove();
   studioChatFeed.scrollTop = studioChatFeed.scrollHeight;
 }
 
 async function sendChat(message) {
   const clean = String(message || "").trim().slice(0, 300);
   if (!clean || !isBroadcasting || !ws || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ type: "live_chat", message: clean }));
-  appendChat(`@${broadcastConfig?.username || "Creator"}`, clean);
+  const username = broadcastConfig?.username || "Creator";
+  ws.send(JSON.stringify({ type: "live_chat", message: clean, nickname: username }));
+  appendChat(`@${username}`, clean, "CREATOR", "tas");
+  try {
+    chrome.runtime.sendMessage({
+      type: "LIVE_EVENT",
+      payload: { type: "live_chat", user: `@${username}`, text: clean, badge: "CREATOR", source: "tas" }
+    }, () => void chrome.runtime.lastError);
+  } catch {}
 }
 
 function handleHudMessage(message) {
@@ -841,20 +887,94 @@ function handleHudMessage(message) {
 }
 
 
-// v1.2.0 Instant Random Chat + Country LIVE partner invitation helpers.
+
+
+// v1.2.0 Instant Random Chat + Board Games + Partner Invitation (Complete Website Parity)
 let rcStream = null;
 let rcSocket = null;
 let rcPeer = null;
 let rcChatClientId = null;
 let rcPartnerInviteUrl = "";
 let rcGender = "";
+let rcCountry = "";
 let rcMicEnabled = true;
 let rcCamEnabled = true;
-let rcGameState = Array(9).fill("");
+let rcMirrored = true;
+let rcCallTimerInterval = null;
+let rcCallStartTime = null;
+
+// Mini-Games State (Replica of TalkAStranger ChatBoardGames)
+let rcActiveGame = "tictactoe"; // 'tictactoe' | 'connect4' | 'rps'
+let rcScores = { me: 0, peer: 0, ties: 0 };
+
+// Tic Tac Toe
+let tttBoard = Array(9).fill(null);
+let tttTurn = "me"; // 'me' | 'peer'
+let tttWinner = null;
+
+// Connect Four (6 rows x 7 cols)
+const C4_ROWS = 6;
+const C4_COLS = 7;
+let c4Board = Array.from({ length: C4_ROWS }, () => Array(C4_COLS).fill(null));
+let c4Turn = "me";
+let c4Winner = null;
+
+// Rock Paper Scissors
+let rpsMyChoice = null;
+let rpsPeerChoice = null;
+let rpsResult = null;
+
+function rcPlayChimeSound(type = "chime") {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    if (type === "spark") {
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(520, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1400, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } else {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    }
+  } catch {}
+}
 
 function rcSetStatus(text) {
   const el = $("rcStatusPill");
   if (el) el.textContent = text;
+}
+
+function rcStartCallTimer() {
+  rcCallStartTime = Date.now();
+  if (rcCallTimerInterval) clearInterval(rcCallTimerInterval);
+  rcCallTimerInterval = setInterval(() => {
+    const diff = Math.floor((Date.now() - rcCallStartTime) / 1000);
+    const m = String(Math.floor(diff / 60)).padStart(2, "0");
+    const s = String(diff % 60).padStart(2, "0");
+    const el = $("rcCallTimer");
+    if (el) el.textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function rcStopCallTimer() {
+  if (rcCallTimerInterval) clearInterval(rcCallTimerInterval);
+  rcCallTimerInterval = null;
+  const el = $("rcCallTimer");
+  if (el) el.textContent = "00:00";
 }
 
 function rcClosePeer() {
@@ -864,10 +984,12 @@ function rcClosePeer() {
   }
   const remote = $("rcRemoteVideo");
   if (remote) remote.srcObject = null;
+  rcStopCallTimer();
 }
 
 function rcDisconnect() {
   if (rcSocket) {
+    try { rcSocket.send(JSON.stringify({ type: "disconnect" })); } catch {}
     try { rcSocket.close(); } catch {}
     rcSocket = null;
   }
@@ -878,21 +1000,301 @@ function rcDisconnect() {
   }
   $("rcWaitingPanel")?.classList.remove("hidden");
   $("rcMatchedPanel")?.classList.add("hidden");
-  rcSetStatus("Disconnected");
+  $("rcCountdownOverlay")?.classList.add("hidden");
+  $("rcGameOverlay")?.classList.add("hidden");
+  $("rcChatDrawer")?.classList.add("hidden");
+  $("rcGiftModal")?.classList.add("hidden");
+  rcSetStatus("Ready to connect");
 }
 
 function rcSend(payload) {
-  if (rcSocket?.readyState === WebSocket.OPEN) rcSocket.send(JSON.stringify(payload));
+  if (rcSocket?.readyState === WebSocket.OPEN) {
+    rcSocket.send(JSON.stringify(payload));
+  }
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// Mini-Games Engine (Tic-Tac-Toe, Connect Four, Rock-Paper-Scissors)
+// ══════════════════════════════════════════════════════════════════════════
+
+function checkTttWinner(board) {
+  const lines = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+    [0, 4, 8], [2, 4, 6],
+  ];
+  for (const [a, b, c] of lines) {
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      return board[a];
+    }
+  }
+  if (board.every((c) => c !== null)) return "tie";
+  return null;
+}
+
+function checkC4Winner(grid) {
+  // Horizontal
+  for (let r = 0; r < C4_ROWS; r++) {
+    for (let c = 0; c < C4_COLS - 3; c++) {
+      const val = grid[r][c];
+      if (val && val === grid[r][c + 1] && val === grid[r][c + 2] && val === grid[r][c + 3]) return val;
+    }
+  }
+  // Vertical
+  for (let r = 0; r < C4_ROWS - 3; r++) {
+    for (let c = 0; c < C4_COLS; c++) {
+      const val = grid[r][c];
+      if (val && val === grid[r + 1][c] && val === grid[r + 2][c] && val === grid[r + 3][c]) return val;
+    }
+  }
+  // Diagonal down-right
+  for (let r = 0; r < C4_ROWS - 3; r++) {
+    for (let c = 0; c < C4_COLS - 3; c++) {
+      const val = grid[r][c];
+      if (val && val === grid[r + 1][c + 1] && val === grid[r + 2][c + 2] && val === grid[r + 3][c + 3]) return val;
+    }
+  }
+  // Diagonal up-right
+  for (let r = 3; r < C4_ROWS; r++) {
+    for (let c = 0; c < C4_COLS - 3; c++) {
+      const val = grid[r][c];
+      if (val && val === grid[r - 1][c + 1] && val === grid[r - 2][c + 2] && val === grid[r - 3][c + 3]) return val;
+    }
+  }
+  if (grid.every((row) => row.every((c) => c !== null))) return "tie";
+  return null;
+}
+
+function recordGameWin(winner) {
+  if (winner === "me") {
+    rcScores.me++;
+    rcPlayChimeSound("chime");
+    toast("🎉 You Won the Round!");
+  } else if (winner === "peer") {
+    rcScores.peer++;
+    toast("Stranger won this round! 👏");
+  } else {
+    rcScores.ties++;
+    toast("It's a Tie! 🤝");
+  }
+  updateGameScoreboard();
+}
+
+function updateGameScoreboard() {
+  if ($("scoreMe")) $("scoreMe").textContent = rcScores.me;
+  if ($("scorePeer")) $("scorePeer").textContent = rcScores.peer;
+  if ($("scoreTies")) $("scoreTies").textContent = rcScores.ties;
+}
+
+function renderRcGameBoard() {
+  const container = $("rcGameBoard");
+  if (!container) return;
+  container.innerHTML = "";
+  updateGameScoreboard();
+
+  // Update tabs active state
+  $("btnGameTtt")?.classList.toggle("active", rcActiveGame === "tictactoe");
+  $("btnGameC4")?.classList.toggle("active", rcActiveGame === "connect4");
+  $("btnGameRps")?.classList.toggle("active", rcActiveGame === "rps");
+
+  if (rcActiveGame === "tictactoe") {
+    const grid = document.createElement("div");
+    grid.className = "ttt-grid";
+    tttBoard.forEach((mark, index) => {
+      const cell = document.createElement("button");
+      cell.className = "ttt-cell" + (mark === "X" ? " mark-x" : mark === "O" ? " mark-o" : "");
+      cell.textContent = mark || "";
+      cell.addEventListener("click", () => {
+        if (tttBoard[index] || tttWinner || tttTurn !== "me") return;
+        tttBoard[index] = "X";
+        tttTurn = "peer";
+        const w = checkTttWinner(tttBoard);
+        if (w) {
+          tttWinner = w;
+          if (w === "X") recordGameWin("me");
+          else if (w === "tie") recordGameWin("tie");
+        }
+        rcSend({ type: "game_action", payload: { type: "game_move", game: "tictactoe", move: { index, mark: "X" } } });
+        renderRcGameBoard();
+      });
+      grid.appendChild(cell);
+    });
+    container.appendChild(grid);
+    const status = $("rcGameStatus");
+    if (status) {
+      status.textContent = tttWinner
+        ? (tttWinner === "X" ? "You Won! 🎉" : tttWinner === "O" ? "Stranger Won! 👏" : "Tie Game! 🤝")
+        : (tttTurn === "me" ? "Your turn (X)" : "Stranger's turn (O)…");
+    }
+  } else if (rcActiveGame === "connect4") {
+    const stage = document.createElement("div");
+    stage.className = "c4-stage";
+
+    // Drop buttons row
+    const dropRow = document.createElement("div");
+    dropRow.className = "c4-drop-row";
+    for (let c = 0; c < C4_COLS; c++) {
+      const btn = document.createElement("button");
+      btn.className = "c4-drop-btn";
+      btn.textContent = "▼";
+      btn.title = `Drop chip in column ${c + 1}`;
+      btn.disabled = !!c4Winner || c4Turn !== "me";
+      btn.addEventListener("click", () => {
+        if (c4Winner || c4Turn !== "me") return;
+        let targetRow = -1;
+        for (let r = C4_ROWS - 1; r >= 0; r--) {
+          if (!c4Board[r][c]) { targetRow = r; break; }
+        }
+        if (targetRow === -1) return;
+        c4Board[targetRow][c] = "Y"; // Yellow for you
+        c4Turn = "peer";
+        const w = checkC4Winner(c4Board);
+        if (w) {
+          c4Winner = w;
+          if (w === "Y") recordGameWin("me");
+          else if (w === "tie") recordGameWin("tie");
+        }
+        rcSend({ type: "game_action", payload: { type: "game_move", game: "connect4", move: { row: targetRow, col: c, color: "Y" } } });
+        renderRcGameBoard();
+      });
+      dropRow.appendChild(btn);
+    }
+    stage.appendChild(dropRow);
+
+    // 7x6 Grid
+    const grid = document.createElement("div");
+    grid.className = "c4-grid";
+    for (let r = 0; r < C4_ROWS; r++) {
+      for (let c = 0; c < C4_COLS; c++) {
+        const cell = document.createElement("div");
+        const val = c4Board[r][c];
+        cell.className = "c4-cell" + (val === "Y" ? " chip-y" : val === "R" ? " chip-r" : "");
+        grid.appendChild(cell);
+      }
+    }
+    stage.appendChild(grid);
+    container.appendChild(stage);
+
+    const status = $("rcGameStatus");
+    if (status) {
+      status.textContent = c4Winner
+        ? (c4Winner === "Y" ? "You Won! 🎉" : c4Winner === "R" ? "Stranger Won! 👏" : "Tie Game! 🤝")
+        : (c4Turn === "me" ? "Your turn (Yellow chips)" : "Stranger's turn (Red chips)…");
+    }
+  } else if (rcActiveGame === "rps") {
+    const stage = document.createElement("div");
+    stage.className = "rps-stage";
+
+    const cardsRow = document.createElement("div");
+    cardsRow.className = "rps-cards-row";
+    const choices = [
+      { id: "rock", emoji: "🪨", label: "Rock" },
+      { id: "paper", emoji: "📄", label: "Paper" },
+      { id: "scissors", emoji: "✂️", label: "Scissors" },
+    ];
+    choices.forEach((choice) => {
+      const btn = document.createElement("button");
+      btn.className = "rps-btn" + (rpsMyChoice === choice.id ? " selected" : "");
+      btn.innerHTML = `<span class="rps-emoji">${choice.emoji}</span><span class="rps-label">${choice.label}</span>`;
+      btn.addEventListener("click", () => {
+        if (rpsMyChoice) return;
+        rpsMyChoice = choice.id;
+        rcSend({ type: "game_action", payload: { type: "game_move", game: "rps", move: { choice: choice.id } } });
+        if (rpsPeerChoice) {
+          calculateRpsResult(choice.id, rpsPeerChoice);
+        }
+        renderRcGameBoard();
+      });
+      cardsRow.appendChild(btn);
+    });
+    stage.appendChild(cardsRow);
+
+    if (rpsResult) {
+      const banner = document.createElement("div");
+      banner.className = "rps-outcome-banner";
+      banner.textContent = rpsResult;
+      stage.appendChild(banner);
+    }
+
+    container.appendChild(stage);
+
+    const status = $("rcGameStatus");
+    if (status) {
+      status.textContent = rpsResult
+        ? rpsResult
+        : (!rpsMyChoice
+          ? (rpsPeerChoice ? "Stranger has picked! Make your move!" : "Choose Rock, Paper, or Scissors!")
+          : "Waiting for stranger to choose…");
+    }
+  }
+}
+
+function calculateRpsResult(mine, theirs) {
+  if (mine === theirs) {
+    rpsResult = "It's a Tie! 🤝";
+    recordGameWin("tie");
+  } else if (
+    (mine === "rock" && theirs === "scissors") ||
+    (mine === "paper" && theirs === "rock") ||
+    (mine === "scissors" && theirs === "paper")
+  ) {
+    rpsResult = "You Won! 🎉";
+    recordGameWin("me");
+  } else {
+    rpsResult = "Stranger Won! 👏";
+    recordGameWin("peer");
+  }
+}
+
+function resetRcCurrentGame() {
+  if (rcActiveGame === "tictactoe") {
+    tttBoard = Array(9).fill(null);
+    tttTurn = "me";
+    tttWinner = null;
+  } else if (rcActiveGame === "connect4") {
+    c4Board = Array.from({ length: C4_ROWS }, () => Array(C4_COLS).fill(null));
+    c4Turn = "me";
+    c4Winner = null;
+  } else if (rcActiveGame === "rps") {
+    rpsMyChoice = null;
+    rpsPeerChoice = null;
+    rpsResult = null;
+  }
+  rcSend({ type: "game_action", payload: { type: "game_reset", game: rcActiveGame } });
+  renderRcGameBoard();
+}
+
+function switchRcGame(game) {
+  rcActiveGame = game;
+  rcSend({ type: "game_action", payload: { type: "game_switch", game } });
+  renderRcGameBoard();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// WebRTC Signaling & Connection Handling
+// ══════════════════════════════════════════════════════════════════════════
 
 async function rcHandleSignal(message) {
   if (!rcPeer) {
     rcPeer = new RTCPeerConnection({ iceServers: await getIceServers() });
     rcStream?.getTracks().forEach((track) => rcPeer.addTrack(track, rcStream));
-    rcPeer.ontrack = (event) => { if ($("rcRemoteVideo")) $("rcRemoteVideo").srcObject = event.streams[0]; };
-    rcPeer.onicecandidate = (event) => { if (event.candidate) rcSend({ type: "ice-candidate", candidate: event.candidate }); };
-    rcPeer.onconnectionstatechange = () => rcSetStatus(rcPeer?.connectionState === "connected" ? "Connected" : rcPeer?.connectionState || "Connecting");
+    rcPeer.ontrack = (event) => {
+      const v = $("rcRemoteVideo");
+      if (v) v.srcObject = event.streams[0];
+    };
+    rcPeer.onicecandidate = (event) => {
+      if (event.candidate) rcSend({ type: "ice-candidate", candidate: event.candidate });
+    };
+    rcPeer.onconnectionstatechange = () => {
+      if (rcPeer?.connectionState === "connected") {
+        rcSetStatus("Connected");
+        rcStartCallTimer();
+      } else {
+        rcSetStatus(rcPeer?.connectionState || "Connecting");
+      }
+    };
   }
+
   if (message.type === "offer") {
     await rcPeer.setRemoteDescription(new RTCSessionDescription(message.offer));
     const answer = await rcPeer.createAnswer();
@@ -905,42 +1307,115 @@ async function rcHandleSignal(message) {
   }
 }
 
+async function rcTriggerMatchReveal(message) {
+  return new Promise((resolve) => {
+    const overlay = $("rcCountdownOverlay");
+    if (!overlay) return resolve();
+
+    const strangerNickname = message.peerNickname || "Stranger";
+    const rawCountry = String(message.peerCountry || "").trim();
+    const foundC = COUNTRIES.find((c) => c[1].toLowerCase() === rawCountry.toLowerCase() || c[0].toLowerCase() === rawCountry.toLowerCase());
+    const flag = foundC ? foundC[2] : "🌍";
+    const countryName = foundC ? foundC[1] : (rawCountry || "Worldwide");
+
+    $("rcCountdownName").textContent = strangerNickname;
+    $("rcCountdownCountry").innerHTML = `<span>${flag}</span> ${countryName}`;
+    $("rcStrangerFlag").textContent = flag;
+    $("rcStrangerName").textContent = strangerNickname;
+    $("rcStrangerGender").textContent = message.peerGender === "female" ? "♀" : message.peerGender === "male" ? "♂" : "";
+
+    overlay.classList.remove("hidden");
+    rcPlayChimeSound("chime");
+
+    let count = 3;
+    const timerEl = $("rcCountdownTimer");
+    timerEl.textContent = count;
+    const interval = setInterval(() => {
+      count--;
+      if (count <= 0) {
+        clearInterval(interval);
+        overlay.classList.add("hidden");
+        resolve();
+      } else {
+        timerEl.textContent = count;
+        rcPlayChimeSound("chime");
+      }
+    }, 900);
+  });
+}
+
 async function rcStartMatch() {
   const auth = await requestAuth();
   if (!auth?.authenticated || !auth.clientId) {
     toast("Sign in on TalkAStranger before starting Instant Random Chat.", true);
     return;
   }
-  try {
-    rcStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    $("rcLocalPreview").srcObject = rcStream;
-    $("rcLocalVideo").srcObject = rcStream;
-  } catch (error) {
-    toast("Allow camera and microphone access to use Instant Random Chat.", true);
-    rcSetStatus("Camera permission required");
-    return;
+
+  if (!rcStream) {
+    try {
+      rcStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const p = $("rcLocalPreview");
+      if (p) p.srcObject = rcStream;
+      const l = $("rcLocalVideo");
+      if (l) l.srcObject = rcStream;
+    } catch (error) {
+      toast("Allow camera and microphone access to use Instant Random Chat.", true);
+      rcSetStatus("Camera permission required");
+      return;
+    }
   }
 
-  rcSetStatus("Connecting…");
+  rcSetStatus("Searching for strangers…");
   const protocol = SITE.startsWith("https:") ? "wss:" : "ws:";
+  if (rcSocket) {
+    try { rcSocket.close(); } catch {}
+  }
+
   rcSocket = new WebSocket(`${protocol}//${new URL(SITE).host}/ws`);
-  rcSocket.onopen = () => rcSend({ type: "join", clientId: auth.clientId, nickname: auth.username || "Creator", gender: "other", country: "", preferGender: rcGender, preferCountry: $("rcCountryFilter")?.value || "" });
+  rcSocket.onopen = () => {
+    rcSend({
+      type: "join",
+      clientId: auth.clientId,
+      nickname: auth.username || "Creator",
+      gender: "other",
+      country: rcCountry,
+      preferGender: rcGender,
+      preferCountry: $("rcCountryFilter")?.value || "",
+    });
+  };
+
   rcSocket.onmessage = async (event) => {
     let message;
     try { message = JSON.parse(event.data); } catch { return; }
-    if (message.type === "matched") {
+
+    if (message.type === "waiting") {
+      rcSetStatus("Looking for strangers…");
+    } else if (message.type === "matched") {
       rcChatClientId = message.peerClientId || null;
-      $("rcStrangerName").textContent = message.peerNickname || "Stranger";
-      $("rcStrangerFlag").textContent = "🌍";
-      $("rcStrangerGender").textContent = message.peerGender || "";
-      $("rcWaitingPanel").classList.add("hidden");
-      $("rcMatchedPanel").classList.remove("hidden");
+      await rcTriggerMatchReveal(message);
+
+      $("rcWaitingPanel")?.classList.add("hidden");
+      $("rcMatchedPanel")?.classList.remove("hidden");
+
       rcClosePeer();
       rcPeer = new RTCPeerConnection({ iceServers: await getIceServers() });
       rcStream.getTracks().forEach((track) => rcPeer.addTrack(track, rcStream));
-      rcPeer.ontrack = (e) => { $("rcRemoteVideo").srcObject = e.streams[0]; };
-      rcPeer.onicecandidate = (e) => { if (e.candidate) rcSend({ type: "ice-candidate", candidate: e.candidate }); };
-      rcPeer.onconnectionstatechange = () => rcSetStatus(rcPeer?.connectionState === "connected" ? "Connected" : rcPeer?.connectionState || "Connecting");
+      rcPeer.ontrack = (e) => {
+        const v = $("rcRemoteVideo");
+        if (v) v.srcObject = e.streams[0];
+      };
+      rcPeer.onicecandidate = (e) => {
+        if (e.candidate) rcSend({ type: "ice-candidate", candidate: e.candidate });
+      };
+      rcPeer.onconnectionstatechange = () => {
+        if (rcPeer?.connectionState === "connected") {
+          rcSetStatus("Connected");
+          rcStartCallTimer();
+        } else {
+          rcSetStatus(rcPeer?.connectionState || "Connecting");
+        }
+      };
+
       if (message.isInitiator) {
         const offer = await rcPeer.createOffer();
         await rcPeer.setLocalDescription(offer);
@@ -951,55 +1426,144 @@ async function rcStartMatch() {
       await rcHandleSignal(message);
     } else if (message.type === "peer-disconnected" || message.type === "peer_disconnected") {
       rcClosePeer();
-      $("rcMatchedPanel").classList.add("hidden");
-      $("rcWaitingPanel").classList.remove("hidden");
-      rcSetStatus("Peer disconnected");
+      toast("Stranger disconnected. Searching for next match…");
+      rcSetStatus("Searching for next match…");
+      rcSend({ type: "skip" });
     } else if (message.type === "chat") {
-      appendChat(message.fromNickname || "Stranger", message.message || "");
+      appendRcChatMessage(message.fromNickname || "Stranger", message.message || "", false);
     } else if (message.type === "game_action") {
-      if (message.action?.type === "ttt_move") {
-        const index = Number(message.action.index);
-        if (index >= 0 && index < 9 && !rcGameState[index]) {
-          rcGameState[index] = message.action.mark === "O" ? "O" : "X";
-          const cell = document.querySelector(`.ttt-cell[data-index="${index}"]`);
-          if (cell) cell.textContent = rcGameState[index];
-        }
-      }
+      handleIncomingGameAction(message.payload || message.action);
     }
   };
-  rcSocket.onclose = () => { rcSetStatus("Disconnected"); };
+
+  rcSocket.onclose = () => {
+    rcSetStatus("Disconnected");
+    rcStopCallTimer();
+  };
   rcSocket.onerror = () => { rcSetStatus("Connection error"); };
 }
 
-async function sendCountryPartnerInvite() {
-  const email = $("partnerInviteEmail")?.value.trim();
-  if (!email || !email.includes("@")) return toast("Enter a valid partner email.", true);
+function handleIncomingGameAction(payload) {
+  if (!payload) return;
+  const { type, game, move } = payload;
+
+  if (type === "game_start" || type === "game_switch") {
+    rcActiveGame = game || "tictactoe";
+    $("rcGameOverlay")?.classList.remove("hidden");
+    renderRcGameBoard();
+  } else if (type === "game_close") {
+    $("rcGameOverlay")?.classList.add("hidden");
+  } else if (type === "game_reset") {
+    if (game === "tictactoe") {
+      tttBoard = Array(9).fill(null);
+      tttTurn = "peer";
+      tttWinner = null;
+    } else if (game === "connect4") {
+      c4Board = Array.from({ length: C4_ROWS }, () => Array(C4_COLS).fill(null));
+      c4Turn = "peer";
+      c4Winner = null;
+    } else if (game === "rps") {
+      rpsMyChoice = null;
+      rpsPeerChoice = null;
+      rpsResult = null;
+    }
+    renderRcGameBoard();
+  } else if (type === "game_move") {
+    if (game === "tictactoe" && move) {
+      tttBoard[move.index] = "O";
+      const w = checkTttWinner(tttBoard);
+      if (w) {
+        tttWinner = w;
+        if (w === "O") recordGameWin("peer");
+        else if (w === "tie") recordGameWin("tie");
+      }
+      tttTurn = "me";
+      renderRcGameBoard();
+    } else if (game === "connect4" && move) {
+      c4Board[move.row][move.col] = "R";
+      const w = checkC4Winner(c4Board);
+      if (w) {
+        c4Winner = w;
+        if (w === "R") recordGameWin("peer");
+        else if (w === "tie") recordGameWin("tie");
+      }
+      c4Turn = "me";
+      renderRcGameBoard();
+    } else if (game === "rps" && move) {
+      rpsPeerChoice = move.choice;
+      if (rpsMyChoice) {
+        calculateRpsResult(rpsMyChoice, move.choice);
+      }
+      renderRcGameBoard();
+    }
+  }
+}
+
+function appendRcChatMessage(author, text, fromMe = false) {
+  const feed = $("rcChatFeed");
+  if (!feed) return;
+  const bubble = document.createElement("div");
+  bubble.className = "rc-chat-bubble " + (fromMe ? "from-me" : "from-peer");
+  bubble.textContent = text;
+  feed.appendChild(bubble);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Dedicated Partner / Co-Host Email Invite (POST /api/live/invite)
+// ══════════════════════════════════════════════════════════════════════════
+
+async function sendPartnerInvite() {
+  const emailInput = $("partnerInviteEmail");
+  const email = emailInput ? emailInput.value.trim() : "";
+  if (!email || !email.includes("@")) return toast("Enter a valid partner email address.", true);
+
   const auth = await requestAuth();
-  if (!auth?.token || !auth?.clientId) return toast("Sign in before inviting a partner.", true);
-  const countryCode = countrySelect.value;
+  const hostClientId = auth?.clientId || "guest-broadcaster";
+  const hostName = auth?.username || "Host";
+  const liveTitle = $("streamTitle")?.value.trim() || "Live Screen Broadcast";
+
   const button = $("btnSendPartnerInvite");
   if (button) button.disabled = true;
+
   try {
-    const response = await fetch(`${SITE}/api/country-live/${encodeURIComponent(auth.clientId)}/guest-invite`, {
+    const response = await fetch(`${SITE}/api/live/invite`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+      headers: { "Content-Type": "application/json" },
       credentials: "omit",
-      body: JSON.stringify({ countryCode, email }),
+      body: JSON.stringify({ email, hostClientId, hostName, liveTitle }),
     });
+
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.joinUrl) throw new Error(result.error || "Could not send the partner invitation.");
-    rcPartnerInviteUrl = new URL(result.joinUrl, SITE).href;
-    $("partnerInviteStatus").textContent = result.emailed ? "Invite email sent." : "Invite link created.";
-    $("partnerInviteResult").classList.remove("hidden");
-    toast(result.emailed ? "Partner invite sent." : "Invite link ready to copy.");
+    if (!response.ok || !result.ok || !result.joinUrl) {
+      throw new Error(result.error || "Could not send the live invitation.");
+    }
+
+    rcPartnerInviteUrl = result.joinUrl;
+    const statusEl = $("partnerInviteStatus");
+    if (statusEl) statusEl.textContent = result.emailed ? "Invite email sent to partner!" : "Direct invite link created!";
+    $("partnerInviteResult")?.classList.remove("hidden");
+    toast(result.emailed ? "Partner invite email sent!" : "Invite link ready to copy.");
   } catch (error) {
-    toast(error.message || "Could not send invite.", true);
+    toast(error.message || "Could not send partner invite.", true);
   } finally {
     if (button) button.disabled = false;
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// V1.2.0 Controls Initialization
+// ══════════════════════════════════════════════════════════════════════════
+
 function initV120Controls() {
+  // Populate country filter
+  const rcCountrySelect = $("rcCountryFilter");
+  if (rcCountrySelect) {
+    rcCountrySelect.innerHTML = '<option value="" selected>🌍 Anywhere (Fastest)</option>' +
+      COUNTRIES.map(([code, name, flag]) => `<option value="${name}">${flag} ${name}</option>`).join("");
+  }
+
+  // Navigation tab switcher
   $("tabInstantRandomChat")?.addEventListener("click", () => {
     $("tabInstantRandomChat").classList.add("active");
     $("tabScreenStudio")?.classList.remove("active");
@@ -1008,6 +1572,7 @@ function initV120Controls() {
     $("previewViewport")?.classList.add("hidden");
     document.querySelector(".studio-chat-panel")?.classList.add("hidden");
   });
+
   $("tabScreenStudio")?.addEventListener("click", () => {
     $("tabScreenStudio").classList.add("active");
     $("tabInstantRandomChat")?.classList.remove("active");
@@ -1016,102 +1581,144 @@ function initV120Controls() {
     $("previewViewport")?.classList.remove("hidden");
     document.querySelector(".studio-chat-panel")?.classList.remove("hidden");
   });
+
+  // Start match & next match
   $("btnRcStartMatch")?.addEventListener("click", () => void rcStartMatch());
-  $("btnRcNext")?.addEventListener("click", () => { rcSend({ type: "skip" }); rcClosePeer(); rcSetStatus("Finding next match…"); });
+  $("btnRcNext")?.addEventListener("click", () => {
+    rcClosePeer();
+    rcSetStatus("Searching for next stranger…");
+    rcSend({ type: "skip" });
+    toast("Skipping to next stranger…");
+  });
   $("btnRcDisconnect")?.addEventListener("click", rcDisconnect);
-  $("rcToggleMic")?.addEventListener("click", (event) => {
+
+  // Media toggles
+  $("rcToggleMic")?.addEventListener("click", (e) => {
     rcMicEnabled = !rcMicEnabled;
-    rcStream?.getAudioTracks().forEach((track) => { track.enabled = rcMicEnabled; });
-    event.currentTarget.classList.toggle("off", !rcMicEnabled);
+    rcStream?.getAudioTracks().forEach((t) => { t.enabled = rcMicEnabled; });
+    e.currentTarget.classList.toggle("off", !rcMicEnabled);
   });
-  $("rcToggleCam")?.addEventListener("click", (event) => {
+  $("rcToggleCam")?.addEventListener("click", (e) => {
     rcCamEnabled = !rcCamEnabled;
-    rcStream?.getVideoTracks().forEach((track) => { track.enabled = rcCamEnabled; });
-    event.currentTarget.classList.toggle("off", !rcCamEnabled);
+    rcStream?.getVideoTracks().forEach((t) => { t.enabled = rcCamEnabled; });
+    e.currentTarget.classList.toggle("off", !rcCamEnabled);
   });
-  document.querySelectorAll(".pill-btn[data-gender]").forEach((button) => button.addEventListener("click", () => {
-    document.querySelectorAll(".pill-btn[data-gender]").forEach((item) => item.classList.remove("active"));
-    button.classList.add("active");
-    rcGender = button.dataset.gender || "";
-  }));
-  $("btnRcGame")?.addEventListener("click", () => $("rcGameOverlay")?.classList.toggle("hidden"));
-  $("btnCloseGame")?.addEventListener("click", () => $("rcGameOverlay")?.classList.add("hidden"));
-  document.querySelectorAll(".ttt-cell").forEach((cell) => cell.addEventListener("click", () => {
-    const index = Number(cell.dataset.index);
-    if (rcGameState[index]) return;
-    rcGameState[index] = "X";
-    cell.textContent = "X";
-    rcSend({ type: "game_action", action: { type: "ttt_move", index, mark: "X" } });
-    $("rcGameStatus").textContent = "Move sent";
-  }));
-  $("btnRcSendSpark")?.addEventListener("click", () => toast("Send Sparks from TalkAStranger's live gift panel."));
-  $("btnSendPartnerInvite")?.addEventListener("click", () => void sendCountryPartnerInvite());
-  $("partnerInviteCopyLink")?.addEventListener("click", async (event) => {
-    event.preventDefault();
+  $("rcToggleFlip")?.addEventListener("click", () => {
+    rcMirrored = !rcMirrored;
+    $("rcLocalPreview")?.classList.toggle("unmirrored", !rcMirrored);
+  });
+
+  $("btnRcMuteMic")?.addEventListener("click", () => {
+    rcMicEnabled = !rcMicEnabled;
+    rcStream?.getAudioTracks().forEach((t) => { t.enabled = rcMicEnabled; });
+    const icon = $("btnRcMicIcon");
+    if (icon) icon.textContent = rcMicEnabled ? "🎙️" : "🔇";
+    toast(rcMicEnabled ? "Microphone active" : "Microphone muted");
+  });
+
+  $("btnRcMuteCam")?.addEventListener("click", () => {
+    rcCamEnabled = !rcCamEnabled;
+    rcStream?.getVideoTracks().forEach((t) => { t.enabled = rcCamEnabled; });
+    const icon = $("btnRcCamIcon");
+    if (icon) icon.textContent = rcCamEnabled ? "📹" : "📷";
+    toast(rcCamEnabled ? "Camera active" : "Camera turned off");
+  });
+
+  $("btnRcFlipCam")?.addEventListener("click", () => {
+    rcMirrored = !rcMirrored;
+    $("rcLocalVideo")?.classList.toggle("unmirrored", !rcMirrored);
+    toast(rcMirrored ? "Camera mirrored" : "Camera normal");
+  });
+
+  // Gender filter pills
+  document.querySelectorAll(".pill-btn[data-gender]").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".pill-btn[data-gender]").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      rcGender = button.dataset.gender || "";
+    });
+  });
+
+  // Mini-Game toggles & tabs
+  $("btnRcGame")?.addEventListener("click", () => {
+    const overlay = $("rcGameOverlay");
+    if (overlay) {
+      overlay.classList.toggle("hidden");
+      if (!overlay.classList.contains("hidden")) {
+        renderRcGameBoard();
+      }
+    }
+  });
+
+  $("btnCloseGame")?.addEventListener("click", () => {
+    $("rcGameOverlay")?.classList.add("hidden");
+    rcSend({ type: "game_action", payload: { type: "game_close" } });
+  });
+
+  $("btnGameTtt")?.addEventListener("click", () => switchRcGame("tictactoe"));
+  $("btnGameC4")?.addEventListener("click", () => switchRcGame("connect4"));
+  $("btnGameRps")?.addEventListener("click", () => switchRcGame("rps"));
+  $("btnResetGame")?.addEventListener("click", resetRcCurrentGame);
+
+  // Spark and gift triggers
+  $("btnRcSendSpark")?.addEventListener("click", () => {
+    rcPlayChimeSound("spark");
+    rcSend({ type: "chat", message: "⚡ Sent a Spark Burst! ✨" });
+    appendRcChatMessage("You", "⚡ Sent a Spark Burst! ✨", true);
+    toast("⚡ Sent Spark Burst!");
+  });
+
+  $("btnRcSendGift")?.addEventListener("click", () => {
+    $("rcGiftModal")?.classList.toggle("hidden");
+  });
+  $("btnCloseGiftModal")?.addEventListener("click", () => {
+    $("rcGiftModal")?.classList.add("hidden");
+  });
+
+  document.querySelectorAll(".gift-card-btn").forEach((card) => {
+    card.addEventListener("click", () => {
+      const giftName = card.dataset.gift || "Gift";
+      const sparks = card.dataset.sparks || "25";
+      rcPlayChimeSound("chime");
+      rcSend({ type: "chat", message: `🎁 Sent ${giftName}! (+${sparks} Sparks)` });
+      appendRcChatMessage("You", `🎁 Sent ${giftName}! (+${sparks} Sparks)`, true);
+      $("rcGiftModal")?.classList.add("hidden");
+      toast(`🎁 Sent ${giftName} to stranger!`);
+    });
+  });
+
+  // In-Call Chat Drawer
+  $("btnRcToggleChat")?.addEventListener("click", () => {
+    $("rcChatDrawer")?.classList.toggle("hidden");
+  });
+  $("btnCloseChatDrawer")?.addEventListener("click", () => {
+    $("rcChatDrawer")?.classList.add("hidden");
+  });
+
+  $("rcChatForm")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = $("rcChatInput");
+    const val = input ? input.value.trim() : "";
+    if (!val) return;
+    rcSend({ type: "chat", message: val });
+    appendRcChatMessage("You", val, true);
+    input.value = "";
+  });
+
+  document.querySelectorAll(".emoji-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const emoji = chip.dataset.emoji || "👋";
+      rcSend({ type: "chat", message: emoji });
+      appendRcChatMessage("You", emoji, true);
+    });
+  });
+
+  // Partner Email Invite
+  $("btnSendPartnerInvite")?.addEventListener("click", () => void sendPartnerInvite());
+  $("partnerInviteCopyLink")?.addEventListener("click", async (e) => {
+    e.preventDefault();
     if (!rcPartnerInviteUrl) return;
     await navigator.clipboard.writeText(rcPartnerInviteUrl);
-    toast("Invite link copied.");
+    toast("Invite link copied to clipboard!");
   });
 }
-
-async function init() {
-  populateCountries();
-  initV120Controls();
-  document.querySelectorAll('input[name="broadcastDestination"]').forEach((input) => input.addEventListener("change", updateDestinationUI));
-  countrySelect.addEventListener("change", updateWatchLink);
-  btnSelectSource.addEventListener("click", selectSource);
-  btnChangeSource.addEventListener("click", async () => {
-    if (isBroadcasting) await stopBroadcast("Broadcast stopped to change source.");
-    clearPreview();
-    await selectSource();
-  });
-  btnToggleBroadcast.addEventListener("click", () => isBroadcasting ? stopBroadcast() : startBroadcast());
-  if (btnGoLiveBoth) {
-    btnGoLiveBoth.addEventListener("click", () => isDualBroadcasting ? stopAllBroadcasts() : startDualBroadcast());
-  }
-  btnConnectAccount.addEventListener("click", () => chrome.tabs.create({ url: `${SITE}/` }));
-  if (btnConnectYouTube) {
-    btnConnectYouTube.addEventListener("click", async () => {
-      const auth = await requestAuth();
-      if (!auth?.token) return toast("Sign in to TalkAStranger first.", true);
-      try {
-        const data = await fetch(`${SITE}/api/youtube/auth-url`, {
-          headers: { Authorization: `Bearer ${auth.token}` },
-          cache: "no-store",
-          credentials: "omit",
-        }).then((r) => r.json());
-        if (data?.url) chrome.tabs.create({ url: data.url });
-        else toast("Could not generate YouTube auth link.", true);
-      } catch {
-        toast("Could not contact YouTube auth service.", true);
-      }
-    });
-  }
-
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get("mode") === "dual") {
-    toast("Dual broadcast ready: Select a screen or tab, then click 'Go Live on Both YouTube and TalkAStranger'.");
-  }
-  studioChatForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const value = studioChatInput.value;
-    studioChatInput.value = "";
-    sendChat(value);
-  });
-  chrome.runtime.onMessage.addListener((message) => handleHudMessage(message));
-  window.addEventListener("beforeunload", () => {
-    if (isBroadcasting) void stopBroadcast("Broadcast studio closed.");
-    if (activeStream) activeStream.getTracks().forEach((track) => track.stop());
-    if (audioContext) audioContext.close().catch(() => undefined);
-  });
-  updateDestinationUI();
-  await checkCountryLive();
-  const auth = await requestAuth();
-  if (auth?.authenticated) setAccount(auth);
-  else setAccount({ authenticated: false });
-  chrome.runtime.sendMessage({ type: "GET_STATE" }, (state) => {
-    if (state?.isLive) toast("A previous broadcast was active. Reconnect from Screen Studio if needed.");
-  });
-}
-
-init();
