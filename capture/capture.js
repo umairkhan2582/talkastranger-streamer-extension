@@ -840,8 +840,223 @@ function handleHudMessage(message) {
   if (message.type === "COMMAND_SEND_CHAT") sendChat(message.payload?.message);
 }
 
+
+// v1.2.0 Instant Random Chat + Country LIVE partner invitation helpers.
+let rcStream = null;
+let rcSocket = null;
+let rcPeer = null;
+let rcChatClientId = null;
+let rcPartnerInviteUrl = "";
+let rcGender = "";
+let rcMicEnabled = true;
+let rcCamEnabled = true;
+let rcGameState = Array(9).fill("");
+
+function rcSetStatus(text) {
+  const el = $("rcStatusPill");
+  if (el) el.textContent = text;
+}
+
+function rcClosePeer() {
+  if (rcPeer) {
+    try { rcPeer.ontrack = null; rcPeer.onicecandidate = null; rcPeer.close(); } catch {}
+    rcPeer = null;
+  }
+  const remote = $("rcRemoteVideo");
+  if (remote) remote.srcObject = null;
+}
+
+function rcDisconnect() {
+  if (rcSocket) {
+    try { rcSocket.close(); } catch {}
+    rcSocket = null;
+  }
+  rcClosePeer();
+  if (rcStream) {
+    rcStream.getTracks().forEach((track) => track.stop());
+    rcStream = null;
+  }
+  $("rcWaitingPanel")?.classList.remove("hidden");
+  $("rcMatchedPanel")?.classList.add("hidden");
+  rcSetStatus("Disconnected");
+}
+
+function rcSend(payload) {
+  if (rcSocket?.readyState === WebSocket.OPEN) rcSocket.send(JSON.stringify(payload));
+}
+
+async function rcHandleSignal(message) {
+  if (!rcPeer) {
+    rcPeer = new RTCPeerConnection({ iceServers: await getIceServers() });
+    rcStream?.getTracks().forEach((track) => rcPeer.addTrack(track, rcStream));
+    rcPeer.ontrack = (event) => { if ($("rcRemoteVideo")) $("rcRemoteVideo").srcObject = event.streams[0]; };
+    rcPeer.onicecandidate = (event) => { if (event.candidate) rcSend({ type: "ice-candidate", candidate: event.candidate }); };
+    rcPeer.onconnectionstatechange = () => rcSetStatus(rcPeer?.connectionState === "connected" ? "Connected" : rcPeer?.connectionState || "Connecting");
+  }
+  if (message.type === "offer") {
+    await rcPeer.setRemoteDescription(new RTCSessionDescription(message.offer));
+    const answer = await rcPeer.createAnswer();
+    await rcPeer.setLocalDescription(answer);
+    rcSend({ type: "answer", answer: rcPeer.localDescription });
+  } else if (message.type === "answer") {
+    await rcPeer.setRemoteDescription(new RTCSessionDescription(message.answer));
+  } else if (message.type === "ice-candidate" && message.candidate) {
+    try { await rcPeer.addIceCandidate(new RTCIceCandidate(message.candidate)); } catch {}
+  }
+}
+
+async function rcStartMatch() {
+  const auth = await requestAuth();
+  if (!auth?.authenticated || !auth.clientId) {
+    toast("Sign in on TalkAStranger before starting Instant Random Chat.", true);
+    return;
+  }
+  try {
+    rcStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    $("rcLocalPreview").srcObject = rcStream;
+    $("rcLocalVideo").srcObject = rcStream;
+  } catch (error) {
+    toast("Allow camera and microphone access to use Instant Random Chat.", true);
+    rcSetStatus("Camera permission required");
+    return;
+  }
+
+  rcSetStatus("Connecting…");
+  const protocol = SITE.startsWith("https:") ? "wss:" : "ws:";
+  rcSocket = new WebSocket(`${protocol}//${new URL(SITE).host}/ws`);
+  rcSocket.onopen = () => rcSend({ type: "join", clientId: auth.clientId, nickname: auth.username || "Creator", gender: "other", country: "", preferGender: rcGender, preferCountry: $("rcCountryFilter")?.value || "" });
+  rcSocket.onmessage = async (event) => {
+    let message;
+    try { message = JSON.parse(event.data); } catch { return; }
+    if (message.type === "matched") {
+      rcChatClientId = message.peerClientId || null;
+      $("rcStrangerName").textContent = message.peerNickname || "Stranger";
+      $("rcStrangerFlag").textContent = "🌍";
+      $("rcStrangerGender").textContent = message.peerGender || "";
+      $("rcWaitingPanel").classList.add("hidden");
+      $("rcMatchedPanel").classList.remove("hidden");
+      rcClosePeer();
+      rcPeer = new RTCPeerConnection({ iceServers: await getIceServers() });
+      rcStream.getTracks().forEach((track) => rcPeer.addTrack(track, rcStream));
+      rcPeer.ontrack = (e) => { $("rcRemoteVideo").srcObject = e.streams[0]; };
+      rcPeer.onicecandidate = (e) => { if (e.candidate) rcSend({ type: "ice-candidate", candidate: e.candidate }); };
+      rcPeer.onconnectionstatechange = () => rcSetStatus(rcPeer?.connectionState === "connected" ? "Connected" : rcPeer?.connectionState || "Connecting");
+      if (message.isInitiator) {
+        const offer = await rcPeer.createOffer();
+        await rcPeer.setLocalDescription(offer);
+        rcSend({ type: "offer", offer: rcPeer.localDescription });
+      }
+      rcSetStatus("Matched — negotiating media");
+    } else if (message.type === "offer" || message.type === "answer" || message.type === "ice-candidate") {
+      await rcHandleSignal(message);
+    } else if (message.type === "peer-disconnected" || message.type === "peer_disconnected") {
+      rcClosePeer();
+      $("rcMatchedPanel").classList.add("hidden");
+      $("rcWaitingPanel").classList.remove("hidden");
+      rcSetStatus("Peer disconnected");
+    } else if (message.type === "chat") {
+      appendChat(message.fromNickname || "Stranger", message.message || "");
+    } else if (message.type === "game_action") {
+      if (message.action?.type === "ttt_move") {
+        const index = Number(message.action.index);
+        if (index >= 0 && index < 9 && !rcGameState[index]) {
+          rcGameState[index] = message.action.mark === "O" ? "O" : "X";
+          const cell = document.querySelector(`.ttt-cell[data-index="${index}"]`);
+          if (cell) cell.textContent = rcGameState[index];
+        }
+      }
+    }
+  };
+  rcSocket.onclose = () => { rcSetStatus("Disconnected"); };
+  rcSocket.onerror = () => { rcSetStatus("Connection error"); };
+}
+
+async function sendCountryPartnerInvite() {
+  const email = $("partnerInviteEmail")?.value.trim();
+  if (!email || !email.includes("@")) return toast("Enter a valid partner email.", true);
+  const auth = await requestAuth();
+  if (!auth?.token || !auth?.clientId) return toast("Sign in before inviting a partner.", true);
+  const countryCode = countrySelect.value;
+  const button = $("btnSendPartnerInvite");
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch(`${SITE}/api/country-live/${encodeURIComponent(auth.clientId)}/guest-invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+      credentials: "omit",
+      body: JSON.stringify({ countryCode, email }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.joinUrl) throw new Error(result.error || "Could not send the partner invitation.");
+    rcPartnerInviteUrl = new URL(result.joinUrl, SITE).href;
+    $("partnerInviteStatus").textContent = result.emailed ? "Invite email sent." : "Invite link created.";
+    $("partnerInviteResult").classList.remove("hidden");
+    toast(result.emailed ? "Partner invite sent." : "Invite link ready to copy.");
+  } catch (error) {
+    toast(error.message || "Could not send invite.", true);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function initV120Controls() {
+  $("tabInstantRandomChat")?.addEventListener("click", () => {
+    $("tabInstantRandomChat").classList.add("active");
+    $("tabScreenStudio")?.classList.remove("active");
+    $("randomChatContainer")?.classList.remove("hidden");
+    $("destinationCard")?.classList.add("hidden");
+    $("previewViewport")?.classList.add("hidden");
+    document.querySelector(".studio-chat-panel")?.classList.add("hidden");
+  });
+  $("tabScreenStudio")?.addEventListener("click", () => {
+    $("tabScreenStudio").classList.add("active");
+    $("tabInstantRandomChat")?.classList.remove("active");
+    $("randomChatContainer")?.classList.add("hidden");
+    $("destinationCard")?.classList.remove("hidden");
+    $("previewViewport")?.classList.remove("hidden");
+    document.querySelector(".studio-chat-panel")?.classList.remove("hidden");
+  });
+  $("btnRcStartMatch")?.addEventListener("click", () => void rcStartMatch());
+  $("btnRcNext")?.addEventListener("click", () => { rcSend({ type: "skip" }); rcClosePeer(); rcSetStatus("Finding next match…"); });
+  $("btnRcDisconnect")?.addEventListener("click", rcDisconnect);
+  $("rcToggleMic")?.addEventListener("click", (event) => {
+    rcMicEnabled = !rcMicEnabled;
+    rcStream?.getAudioTracks().forEach((track) => { track.enabled = rcMicEnabled; });
+    event.currentTarget.classList.toggle("off", !rcMicEnabled);
+  });
+  $("rcToggleCam")?.addEventListener("click", (event) => {
+    rcCamEnabled = !rcCamEnabled;
+    rcStream?.getVideoTracks().forEach((track) => { track.enabled = rcCamEnabled; });
+    event.currentTarget.classList.toggle("off", !rcCamEnabled);
+  });
+  document.querySelectorAll(".pill-btn[data-gender]").forEach((button) => button.addEventListener("click", () => {
+    document.querySelectorAll(".pill-btn[data-gender]").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+    rcGender = button.dataset.gender || "";
+  }));
+  $("btnRcGame")?.addEventListener("click", () => $("rcGameOverlay")?.classList.toggle("hidden"));
+  $("btnCloseGame")?.addEventListener("click", () => $("rcGameOverlay")?.classList.add("hidden"));
+  document.querySelectorAll(".ttt-cell").forEach((cell) => cell.addEventListener("click", () => {
+    const index = Number(cell.dataset.index);
+    if (rcGameState[index]) return;
+    rcGameState[index] = "X";
+    cell.textContent = "X";
+    rcSend({ type: "game_action", action: { type: "ttt_move", index, mark: "X" } });
+    $("rcGameStatus").textContent = "Move sent";
+  }));
+  $("btnRcSendSpark")?.addEventListener("click", () => toast("Send Sparks from TalkAStranger's live gift panel."));
+  $("btnSendPartnerInvite")?.addEventListener("click", () => void sendCountryPartnerInvite());
+  $("partnerInviteCopyLink")?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    if (!rcPartnerInviteUrl) return;
+    await navigator.clipboard.writeText(rcPartnerInviteUrl);
+    toast("Invite link copied.");
+  });
+}
+
 async function init() {
   populateCountries();
+  initV120Controls();
   document.querySelectorAll('input[name="broadcastDestination"]').forEach((input) => input.addEventListener("change", updateDestinationUI));
   countrySelect.addEventListener("change", updateWatchLink);
   btnSelectSource.addEventListener("click", selectSource);
