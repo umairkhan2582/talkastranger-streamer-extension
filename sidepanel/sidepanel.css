@@ -428,12 +428,7 @@ body {
   transform: translateY(-1px);
 }
 
-/* v1.2.0 Additions: Gifts Styling */
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+
 
 .badge-source-yt {
   background: #ef4444;

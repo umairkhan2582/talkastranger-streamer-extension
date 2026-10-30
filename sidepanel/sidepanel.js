@@ -17,7 +17,6 @@ const btnGoLive = document.getElementById("btnGoLive");
 const goLiveText = document.getElementById("goLiveText");
 const btnCopyOverlay = document.getElementById("btnCopyOverlay");
 const toastMessage = document.getElementById("toastMessage");
-const soundToggleBtn = document.getElementById("soundToggleBtn");
 const chatFeed = document.getElementById("chatFeed");
 const chatComposerForm = document.getElementById("chatComposerForm");
 const chatInput = document.getElementById("chatInput");
@@ -273,10 +272,7 @@ btnCopyOverlay.addEventListener("click", () => {
   });
 });
 
-soundToggleBtn.addEventListener("click", () => {
-  audioAlerts = !audioAlerts;
-  soundToggleBtn.style.opacity = audioAlerts ? 1 : 0.4;
-});
+
 
 chatComposerForm.addEventListener("submit", (e) => {
   e.preventDefault();
