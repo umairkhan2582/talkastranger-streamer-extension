@@ -895,6 +895,8 @@ function handleHudMessage(message) {
 let rcStream = null;
 let rcSocket = null;
 let rcPeer = null;
+let rcPendingIceCandidates = [];
+let rcSignalQueue = Promise.resolve();
 let rcChatClientId = null;
 let rcPartnerInviteUrl = "";
 let rcGender = "";
@@ -980,13 +982,53 @@ function rcStopCallTimer() {
 }
 
 function rcClosePeer() {
-  if (rcPeer) {
-    try { rcPeer.ontrack = null; rcPeer.onicecandidate = null; rcPeer.close(); } catch {}
-    rcPeer = null;
+  const peer = rcPeer;
+  rcPeer = null;
+  rcPendingIceCandidates = [];
+  if (peer) {
+    try { peer.ontrack = null; peer.onicecandidate = null; peer.onconnectionstatechange = null; peer.close(); } catch {}
   }
   const remote = $("rcRemoteVideo");
   if (remote) remote.srcObject = null;
   rcStopCallTimer();
+}
+
+function rcCreatePeerConnection() {
+  if (rcPeer && rcPeer.connectionState !== "closed") return rcPeer;
+  const peer = new RTCPeerConnection({ iceServers: [] });
+  rcPeer = peer;
+  rcStream?.getTracks().forEach((track) => peer.addTrack(track, rcStream));
+  peer.ontrack = (event) => {
+    if (rcPeer !== peer) return;
+    const video = $("rcRemoteVideo");
+    if (video) {
+      const remoteStream = event.streams?.[0] || new MediaStream([event.track]);
+      if (video.srcObject !== remoteStream) video.srcObject = remoteStream;
+      video.play?.().catch(() => {});
+    }
+  };
+  peer.onicecandidate = (event) => {
+    if (rcPeer === peer && event.candidate) rcSend({ type: "ice-candidate", candidate: event.candidate });
+  };
+  peer.onconnectionstatechange = () => {
+    if (rcPeer !== peer) return;
+    if (peer.connectionState === "connected") {
+      rcSetStatus("Connected");
+      rcStartCallTimer();
+    } else {
+      rcSetStatus(peer.connectionState || "Connecting");
+    }
+  };
+  return peer;
+}
+
+async function rcFlushPendingIceCandidates(peer) {
+  if (rcPeer !== peer || !peer.remoteDescription) return;
+  const pending = rcPendingIceCandidates.splice(0);
+  for (const candidate of pending) {
+    try { await peer.addIceCandidate(new RTCIceCandidate(candidate)); }
+    catch (error) { console.warn("Could not apply queued ICE candidate", error); }
+  }
 }
 
 function rcDisconnect() {
@@ -1276,39 +1318,65 @@ function switchRcGame(game) {
 // WebRTC Signaling & Connection Handling
 // ══════════════════════════════════════════════════════════════════════════
 
-async function rcHandleSignal(message) {
-  if (!rcPeer) {
-    rcPeer = new RTCPeerConnection({ iceServers: await getIceServers() });
-    rcStream?.getTracks().forEach((track) => rcPeer.addTrack(track, rcStream));
-    rcPeer.ontrack = (event) => {
-      const v = $("rcRemoteVideo");
-      if (v) v.srcObject = event.streams[0];
-    };
-    rcPeer.onicecandidate = (event) => {
-      if (event.candidate) rcSend({ type: "ice-candidate", candidate: event.candidate });
-    };
-    rcPeer.onconnectionstatechange = () => {
-      if (rcPeer?.connectionState === "connected") {
-        rcSetStatus("Connected");
-        rcStartCallTimer();
-      } else {
-        rcSetStatus(rcPeer?.connectionState || "Connecting");
-      }
-    };
-  }
-
-  if (message.type === "offer") {
-    await rcPeer.setRemoteDescription(new RTCSessionDescription(message.offer));
-    const answer = await rcPeer.createAnswer();
-    await rcPeer.setLocalDescription(answer);
-    rcSend({ type: "answer", answer: rcPeer.localDescription });
-  } else if (message.type === "answer") {
-    await rcPeer.setRemoteDescription(new RTCSessionDescription(message.answer));
-  } else if (message.type === "ice-candidate" && message.candidate) {
-    try { await rcPeer.addIceCandidate(new RTCIceCandidate(message.candidate)); } catch {}
-  }
+function rcHandleSignal(message) {
+  return rcHandleSignalNow(message);
 }
 
+async function rcHandleSignalNow(message) {
+  if (message.type === "ice-candidate" && message.candidate) {
+    const peer = rcPeer;
+    if (!peer || !peer.remoteDescription) {
+      if (rcPendingIceCandidates.length < 64) rcPendingIceCandidates.push(message.candidate);
+      return;
+    }
+    try { await peer.addIceCandidate(new RTCIceCandidate(message.candidate)); }
+    catch (error) { console.warn("Could not apply ICE candidate", error); }
+    return;
+  }
+
+  const peer = rcCreatePeerConnection();
+  if (message.type === "offer") {
+    const offer = message.offer;
+    if (!offer?.sdp) return;
+
+    // Duplicate offers can arrive during reconnect/retransmission. Re-send an
+    // existing answer rather than calling createAnswer in the wrong state.
+    const sameRemoteOffer = peer.remoteDescription?.type === "offer" && peer.remoteDescription?.sdp === offer.sdp;
+    if (sameRemoteOffer && peer.localDescription?.type === "answer") {
+      rcSend({ type: "answer", answer: peer.localDescription });
+      return;
+    }
+
+    if (peer.signalingState === "have-local-offer") {
+      // Be the polite peer if offers cross in flight.
+      await peer.setLocalDescription({ type: "rollback" });
+    } else if (peer.signalingState === "have-remote-offer") {
+      // Ignore a second, different remote offer until this negotiation settles.
+      return;
+    } else if (peer.signalingState !== "stable") {
+      return;
+    }
+
+    await peer.setRemoteDescription(new RTCSessionDescription(offer));
+    await rcFlushPendingIceCandidates(peer);
+    if (rcPeer !== peer || peer.signalingState !== "have-remote-offer") return;
+    const answer = await peer.createAnswer();
+    if (rcPeer !== peer || peer.signalingState !== "have-remote-offer") return;
+    await peer.setLocalDescription(answer);
+    if (rcPeer === peer && peer.localDescription?.type === "answer") {
+      rcSend({ type: "answer", answer: peer.localDescription });
+    }
+  } else if (message.type === "answer") {
+    const answer = message.answer;
+    if (!answer?.sdp) return;
+    if (peer.signalingState === "have-local-offer") {
+      await peer.setRemoteDescription(new RTCSessionDescription(answer));
+      await rcFlushPendingIceCandidates(peer);
+    } else if (!(peer.remoteDescription?.type === "answer" && peer.remoteDescription?.sdp === answer.sdp)) {
+      console.warn("Ignoring unexpected WebRTC answer in state", peer.signalingState);
+    }
+  }
+}
 async function rcTriggerMatchReveal(message) {
   return new Promise((resolve) => {
     const overlay = $("rcCountdownOverlay");
@@ -1386,57 +1454,58 @@ async function rcStartMatch() {
     });
   };
 
-  rcSocket.onmessage = async (event) => {
+  rcSocket.onmessage = (event) => {
     let message;
     try { message = JSON.parse(event.data); } catch { return; }
 
+    // Process match and signaling messages in arrival order. Parallel async
+    // handlers can change signalingState between createAnswer and setLocalDescription.
+    rcSignalQueue = rcSignalQueue.then(() => rcHandleSocketMessage(message)).catch((error) => {
+      console.warn("Could not process random-chat socket message", error);
+      rcSetStatus("Media negotiation error — retrying connection");
+    });
+  };
+
+  async function rcHandleSocketMessage(message) {
     if (message.type === "waiting") {
-      rcSetStatus("Looking for strangers…");
+      $("rcWaitingPanel")?.classList.remove("hidden");
+      $("rcMatchedPanel")?.classList.add("hidden");
+      rcSetStatus("Waiting for a stranger…");
     } else if (message.type === "matched") {
       rcChatClientId = message.peerClientId || null;
+      rcClosePeer();
+      const peer = rcCreatePeerConnection();
+      peer.setConfiguration({ iceServers: await getIceServers() });
       await rcTriggerMatchReveal(message);
 
       $("rcWaitingPanel")?.classList.add("hidden");
       $("rcMatchedPanel")?.classList.remove("hidden");
 
-      rcClosePeer();
-      rcPeer = new RTCPeerConnection({ iceServers: await getIceServers() });
-      rcStream.getTracks().forEach((track) => rcPeer.addTrack(track, rcStream));
-      rcPeer.ontrack = (e) => {
-        const v = $("rcRemoteVideo");
-        if (v) v.srcObject = e.streams[0];
-      };
-      rcPeer.onicecandidate = (e) => {
-        if (e.candidate) rcSend({ type: "ice-candidate", candidate: e.candidate });
-      };
-      rcPeer.onconnectionstatechange = () => {
-        if (rcPeer?.connectionState === "connected") {
-          rcSetStatus("Connected");
-          rcStartCallTimer();
-        } else {
-          rcSetStatus(rcPeer?.connectionState || "Connecting");
-        }
-      };
-
       if (message.isInitiator) {
-        const offer = await rcPeer.createOffer();
-        await rcPeer.setLocalDescription(offer);
-        rcSend({ type: "offer", offer: rcPeer.localDescription });
+        const offer = await peer.createOffer();
+        if (rcPeer !== peer || peer.signalingState !== "stable") return;
+        await peer.setLocalDescription(offer);
+        if (rcPeer === peer && peer.localDescription?.type === "offer") {
+          rcSend({ type: "offer", offer: peer.localDescription });
+        }
       }
       rcSetStatus("Matched — negotiating media");
     } else if (message.type === "offer" || message.type === "answer" || message.type === "ice-candidate") {
       await rcHandleSignal(message);
     } else if (message.type === "peer-disconnected" || message.type === "peer_disconnected") {
       rcClosePeer();
-      toast("Stranger disconnected. Searching for next match…");
-      rcSetStatus("Searching for next match…");
+      rcChatClientId = null;
+      $("rcMatchedPanel")?.classList.add("hidden");
+      $("rcWaitingPanel")?.classList.remove("hidden");
+      toast("Stranger disconnected. Looking for another match…");
+      rcSetStatus("Waiting for a stranger…");
       rcSend({ type: "skip" });
     } else if (message.type === "chat") {
       appendRcChatMessage(message.fromNickname || "Stranger", message.message || "", false);
     } else if (message.type === "game_action") {
       handleIncomingGameAction(message.payload || message.action);
     }
-  };
+  }
 
   rcSocket.onclose = () => {
     rcSetStatus("Disconnected");
@@ -1666,30 +1735,11 @@ function initV120Controls() {
   $("btnResetGame")?.addEventListener("click", resetRcCurrentGame);
 
   // Spark and gift triggers
-  $("btnRcSendSpark")?.addEventListener("click", () => {
-    rcPlayChimeSound("spark");
-    rcSend({ type: "chat", message: "⚡ Sent a Spark Burst! ✨" });
-    appendRcChatMessage("You", "⚡ Sent a Spark Burst! ✨", true);
-    toast("⚡ Sent Spark Burst!");
-  });
-
   $("btnRcSendGift")?.addEventListener("click", () => {
     $("rcGiftModal")?.classList.toggle("hidden");
   });
   $("btnCloseGiftModal")?.addEventListener("click", () => {
     $("rcGiftModal")?.classList.add("hidden");
-  });
-
-  document.querySelectorAll(".gift-card-btn").forEach((card) => {
-    card.addEventListener("click", () => {
-      const giftName = card.dataset.gift || "Gift";
-      const sparks = card.dataset.sparks || "25";
-      rcPlayChimeSound("chime");
-      rcSend({ type: "chat", message: `🎁 Sent ${giftName}! (+${sparks} Sparks)` });
-      appendRcChatMessage("You", `🎁 Sent ${giftName}! (+${sparks} Sparks)`, true);
-      $("rcGiftModal")?.classList.add("hidden");
-      toast(`🎁 Sent ${giftName} to stranger!`);
-    });
   });
 
   // In-Call Chat Drawer
@@ -1860,32 +1910,48 @@ function initV122Handlers() {
     });
   });
 
-  // Buy Sparks via Stripe ($0.99 for 100 sparks)
-  $("btnBuySparksStripe")?.addEventListener("click", () => {
-    chrome.tabs.create({ url: `${SITE}/pricing?product=sparks&amount=100` });
-    toast("Opening Stripe Spark Purchase ($0.99 for 100 Sparks)…");
-  });
+  // Gifts and Spark Bursts use the authenticated server checkout flow. The
+  // server validates Stripe payment and credits the recipient's Gifts earnings.
+  $("btnBuySparksStripe")?.addEventListener("click", () => rcStartGiftCheckout("spark-burst"));
+  $("btnRcSendSpark")?.addEventListener("click", () => rcStartGiftCheckout("spark-burst"));
 
-  // Stripe Synced Gift triggers
   document.querySelectorAll(".gift-card-btn").forEach((card) => {
-    card.addEventListener("click", async () => {
-      const giftId = card.dataset.giftId || "spark-burst";
-      const giftName = card.dataset.gift || "Gift";
-      const sparks = card.dataset.sparks || "100";
-      const price = card.dataset.price || "0.99";
-
-      // If user has zero sparks or selects Stripe gift, initiate Stripe flow
-      const auth = await requestAuth();
-      if (!auth?.token) {
-        chrome.tabs.create({ url: `${SITE}/` });
-        return toast("Sign in on TalkAStranger to send Stripe gifts.", true);
-      }
-
-      toast(`Redirecting to Stripe checkout for ${giftName} ($${price})…`);
-      chrome.tabs.create({ url: `${SITE}/pricing?gift=${encodeURIComponent(giftId)}&sparks=${sparks}` });
-      $("rcGiftModal")?.classList.add("hidden");
-    });
+    card.addEventListener("click", () => rcStartGiftCheckout(card.dataset.giftId || "spark-burst", card));
   });
+}
+
+async function rcStartGiftCheckout(giftId, button) {
+  if (!rcChatClientId) {
+    toast("Connect to a chat partner before sending a Spark or Gift.", true);
+    return;
+  }
+  const auth = await requestAuth();
+  if (!auth?.token) {
+    chrome.tabs.create({ url: `${SITE}/` });
+    toast("Sign in on TalkAStranger to send a paid Spark or Gift.", true);
+    return;
+  }
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch(`${SITE}/api/social/gift-checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+      body: JSON.stringify({ recipientClientId: rcChatClientId, source: "random_chat", giftId }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result?.url) throw new Error(result?.error || "Stripe checkout could not be started.");
+    const checkoutUrl = new URL(result.url);
+    if (checkoutUrl.protocol !== "https:" || !/(^|\.)stripe\.com$/i.test(checkoutUrl.hostname)) {
+      throw new Error("The payment provider returned an invalid checkout link.");
+    }
+    chrome.tabs.create({ url: checkoutUrl.href });
+    $("rcGiftModal")?.classList.add("hidden");
+    toast("Opening secure Stripe checkout. The recipient is credited after payment succeeds.");
+  } catch (error) {
+    toast(error?.message || "Could not start Stripe checkout.", true);
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 function applyVideoColorFilter(filter) {
