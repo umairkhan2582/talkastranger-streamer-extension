@@ -1,14 +1,13 @@
 {
   "manifest_version": 3,
   "name": "TalkAStranger Streamer Companion",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Broadcast your screen to TalkAStranger Live Streams, Country LIVE lanes, YouTube Live, and Instant Random Chat.",
   "minimum_chrome_version": "116",
   "permissions": [
     "sidePanel",
     "tabCapture",
-    "storage",
-    "notifications"
+    "storage"
   ],
   "host_permissions": [
     "https://talkastranger.com/*"

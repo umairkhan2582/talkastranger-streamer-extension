@@ -115,7 +115,6 @@ TalkAStranger values creator privacy. This extension requests **only** the minim
 | `sidePanel` | Allows docking the live chat & gift alert HUD alongside your browser tabs. |
 | `storage` | Saves your local UI preferences (audio mute status, quality selection). |
 | `tabCapture` | Enables video stream capture when you explicitly broadcast a screen or tab. |
-| `notifications` | Displays desktop notifications for high-value gift alerts when the panel is minimized. |
 | `host_permissions` | Strictly scoped to `https://talkastranger.com/*` and `wss://talkastranger.com/*`. |
 
 - **Zero Tracking:** No third-party tracking scripts, analytics SDKs, or external network requests.
