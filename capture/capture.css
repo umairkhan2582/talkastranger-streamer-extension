@@ -1522,3 +1522,39 @@ body {
   border-left: 3px solid #ec4899 !important;
   border-radius: 4px;
 }
+
+/* Fix viewport overflow and button overlap for compact laptop screens */
+body {
+  overflow-y: auto !important;
+  height: auto !important;
+  min-height: 100vh !important;
+}
+
+.studio-layout {
+  min-height: 100vh !important;
+  height: auto !important;
+}
+
+.studio-main {
+  min-height: min-content !important;
+  overflow-y: visible !important;
+}
+
+.preview-viewport {
+  min-height: 220px !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.btn-select-source {
+  position: relative !important;
+  z-index: 10 !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.studio-bottom {
+  margin-top: 6px !important;
+  position: relative !important;
+  z-index: 5 !important;
+}

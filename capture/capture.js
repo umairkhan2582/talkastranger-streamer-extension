@@ -1722,3 +1722,69 @@ function initV120Controls() {
     toast("Invite link copied to clipboard!");
   });
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// Studio Initialization
+// ══════════════════════════════════════════════════════════════════════════
+
+async function init() {
+  populateCountries();
+  initV120Controls();
+  document.querySelectorAll('input[name="broadcastDestination"]').forEach((input) => input.addEventListener("change", updateDestinationUI));
+  countrySelect?.addEventListener("change", updateWatchLink);
+  btnSelectSource?.addEventListener("click", selectSource);
+  btnChangeSource?.addEventListener("click", async () => {
+    if (isBroadcasting) await stopBroadcast("Broadcast stopped to change source.");
+    clearPreview();
+    await selectSource();
+  });
+  btnToggleBroadcast?.addEventListener("click", () => isBroadcasting ? stopBroadcast() : startBroadcast());
+  if (btnGoLiveBoth) {
+    btnGoLiveBoth.addEventListener("click", () => isDualBroadcasting ? stopAllBroadcasts() : startDualBroadcast());
+  }
+  btnConnectAccount?.addEventListener("click", () => chrome.tabs.create({ url: `${SITE}/` }));
+  if (btnConnectYouTube) {
+    btnConnectYouTube.addEventListener("click", async () => {
+      const auth = await requestAuth();
+      if (!auth?.token) return toast("Sign in to TalkAStranger first.", true);
+      try {
+        const data = await fetch(`${SITE}/api/youtube/auth-url`, {
+          headers: { Authorization: `Bearer ${auth.token}` },
+          cache: "no-store",
+          credentials: "omit",
+        }).then((r) => r.json());
+        if (data?.url) chrome.tabs.create({ url: data.url });
+        else toast("Could not generate YouTube auth link.", true);
+      } catch {
+        toast("Could not contact YouTube auth service.", true);
+      }
+    });
+  }
+
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("mode") === "dual") {
+    toast("Dual broadcast ready: Select a screen or tab, then click 'Go Live on Both YouTube and TalkAStranger'.");
+  }
+  studioChatForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const value = studioChatInput.value;
+    studioChatInput.value = "";
+    sendChat(value);
+  });
+  chrome.runtime.onMessage.addListener((message) => handleHudMessage(message));
+  window.addEventListener("beforeunload", () => {
+    if (isBroadcasting) void stopBroadcast("Broadcast studio closed.");
+    if (activeStream) activeStream.getTracks().forEach((track) => track.stop());
+    if (audioContext) audioContext.close().catch(() => undefined);
+  });
+  updateDestinationUI();
+  await checkCountryLive();
+  const auth = await requestAuth();
+  if (auth?.authenticated) setAccount(auth);
+  else setAccount({ authenticated: false });
+  chrome.runtime.sendMessage({ type: "GET_STATE" }, (state) => {
+    if (state?.isLive) toast("A previous broadcast was active. Reconnect from Screen Studio if needed.");
+  });
+}
+
+init();
