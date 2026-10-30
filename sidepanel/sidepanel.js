@@ -12,15 +12,7 @@ const viewersCount = document.getElementById("viewersCount");
 const sparksCount = document.getElementById("sparksCount");
 const giftsCount = document.getElementById("giftsCount");
 const streamTimer = document.getElementById("streamTimer");
-const notificationBellBtn = document.getElementById("notificationBellBtn");
-const bellBadge = document.getElementById("bellBadge");
-const notificationDrawer = document.getElementById("notificationDrawer");
-const notificationList = document.getElementById("notificationList");
-const clearNotificationsBtn = document.getElementById("clearNotificationsBtn");
-
 let totalGifts = 0;
-let unreadNotifications = 0;
-let notificationItems = [];
 const btnGoLive = document.getElementById("btnGoLive");
 const goLiveText = document.getElementById("goLiveText");
 const btnCopyOverlay = document.getElementById("btnCopyOverlay");
@@ -36,7 +28,7 @@ const authStatus = document.getElementById("authStatus");
 const authAction = document.getElementById("authAction");
 const connectionStatus = document.getElementById("connectionStatus");
 
-// Play Web Audio synthetic notification chime
+// Play Web Audio synthetic alert chime
 // Play Web Audio synthetic spark burst
 function playSparkSound() {
   if (!audioAlerts) return;
@@ -57,32 +49,7 @@ function playSparkSound() {
   } catch (e) {}
 }
 
-function addNotification(type, title, detail) {
-  unreadNotifications++;
-  if (bellBadge) {
-    bellBadge.textContent = unreadNotifications;
-    bellBadge.classList.remove("hidden");
-  }
-  notificationItems.unshift({ type, title, detail, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) });
-  renderNotifications();
-}
 
-function renderNotifications() {
-  if (!notificationList) return;
-  if (notificationItems.length === 0) {
-    notificationList.innerHTML = '<div class="empty-notif">No recent sparks, gifts, or invites.</div>';
-    return;
-  }
-  notificationList.innerHTML = notificationItems.map(item => `
-    <div class="notif-item ${item.type === 'gift' ? 'gift-notif' : item.type === 'spark' ? 'spark-notif' : ''}">
-      <span class="notif-icon">${item.type === 'gift' ? '🎁' : item.type === 'spark' ? '⚡' : '📢'}</span>
-      <div style="flex:1;">
-        <div style="font-weight:700;">${item.title}</div>
-        <div style="color:#9ca3af;font-size:10px;">${item.detail} · <span style="opacity:0.7;">${item.time}</span></div>
-      </div>
-    </div>
-  `).join("");
-}
 
 function playChime() {
   if (!audioAlerts) return;
@@ -188,7 +155,6 @@ function handleIncomingEvent(data) {
     sparksCount.textContent = currSparks;
     playSparkSound();
     showSparkAlert(sender, amount);
-    addNotification("spark", `⚡ Spark Burst (+${amount})`, `From ${sender}`);
     appendChatMessage("⚡ Sparks Alert", `${sender} sent a Spark Burst! (+${amount} Sparks)`, "SPARKS");
   } else if (data.type === "gift" || data.type === "live_gift") {
     const sender = data.sender || data.nickname || "A viewer";
@@ -200,7 +166,6 @@ function handleIncomingEvent(data) {
     sparksCount.textContent = currSparks;
     playChime();
     showGiftAlert(sender, giftName, sparks);
-    addNotification("gift", `🎁 ${giftName}`, `${sender} sent ${giftName} (+${sparks} Sparks)`);
     appendChatMessage("🎁 Gift Alert", `${sender} sent ${giftName}! (+${sparks} Sparks)`, "GIFT");
   }
 }
@@ -336,17 +301,4 @@ authAction.addEventListener("click", () => {
 
 chrome.runtime.sendMessage({ type: "REQUEST_PAGE_AUTH" });
 
-if (notificationBellBtn) {
-  notificationBellBtn.addEventListener("click", () => {
-    notificationDrawer.classList.toggle("hidden");
-    unreadNotifications = 0;
-    if (bellBadge) bellBadge.classList.add("hidden");
-  });
-}
 
-if (clearNotificationsBtn) {
-  clearNotificationsBtn.addEventListener("click", () => {
-    notificationItems = [];
-    renderNotifications();
-  });
-}

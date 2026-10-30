@@ -22,7 +22,7 @@
 - Send comments while signed in and broadcasting.
 
 ### 🎁 Animated Gift & Spark Alerts
-- **Interactive Banners:** Animated drop-down notifications featuring **TASSY** the official mascot.
+- **Interactive Banners:** Animated drop-down gift alerts featuring **TASSY** the official mascot.
 - **Spark Celebrations:** Multi-tier gift animations including *Spark Burst*, *Heart Rain*, and *Crown Drop*.
 - **Synthesized Audio Chimes:** Built-in Web Audio API alerts that require zero external MP3 assets or audio permissions.
 
