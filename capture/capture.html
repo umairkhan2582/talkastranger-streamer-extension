@@ -8,6 +8,19 @@
 </head>
 <body>
   <div class="studio-layout">
+      <!-- Co-Host / Partner Live Request Approval Card -->
+      <div id="cohostRequestOverlay" class="cohost-request-card hidden">
+        <div class="cohost-req-header">
+          <div class="cohost-req-badge">👥 Live Co-Host Request</div>
+          <button type="button" class="btn-text-sm" id="btnCloseCohostOverlay">✕</button>
+        </div>
+        <p class="cohost-req-text"><b id="cohostGuestName">A guest</b> wants to join your live broadcast as co-host.</p>
+        <div class="cohost-req-actions">
+          <button type="button" class="btn-cohost-accept" id="btnAcceptCohost">✅ Approve Co-Host</button>
+          <button type="button" class="btn-cohost-decline" id="btnDeclineCohost">✕ Decline</button>
+        </div>
+      </div>
+
     <!-- Main Broadcast Center -->
     <main class="studio-main">
       <!-- Top Navigation & Status -->
@@ -61,7 +74,7 @@
               <div class="rc-media-toggles">
                 <button type="button" class="btn-icon-toggle" id="rcToggleMic" title="Toggle Microphone">🎤</button>
                 <button type="button" class="btn-icon-toggle" id="rcToggleCam" title="Toggle Camera">📹</button>
-                <button type="button" class="btn-icon-toggle" id="rcToggleFlip" title="Flip / Mirror Camera">🔄</button>
+                <button type="button" class="btn-icon-toggle" id="rcToggleFilters" title="AR / VR & Video Filters">✨</button>
               </div>
             </div>
           </div>
@@ -181,38 +194,101 @@
             </div>
 
             <!-- In-Call Gift Picker Modal -->
+            
+            <!-- AR / VR & Video Filters Modal -->
+            <div class="rc-filters-modal hidden" id="rcFiltersModal">
+              <div class="filters-modal-header">
+                <span>✨ AR / VR & Video Tools</span>
+                <button type="button" class="btn-text-sm" id="btnCloseFiltersModal">✕</button>
+              </div>
+              <div class="filters-section-title">🎭 AR Face Effects</div>
+              <div class="filters-grid" id="arFiltersGrid">
+                <button type="button" class="filter-card-btn active" data-ar="none">
+                  <span class="filter-emoji">🚫</span>
+                  <span class="filter-name">None</span>
+                </button>
+                <button type="button" class="filter-card-btn" data-ar="shades">
+                  <span class="filter-emoji">🕶️</span>
+                  <span class="filter-name">Shades</span>
+                </button>
+                <button type="button" class="filter-card-btn" data-ar="crown">
+                  <span class="filter-emoji">👑</span>
+                  <span class="filter-name">Crown</span>
+                </button>
+                <button type="button" class="filter-card-btn" data-ar="cat">
+                  <span class="filter-emoji">🐱</span>
+                  <span class="filter-name">Cat Ears</span>
+                </button>
+                <button type="button" class="filter-card-btn" data-ar="top-hat">
+                  <span class="filter-emoji">🎩</span>
+                  <span class="filter-name">Top Hat</span>
+                </button>
+                <button type="button" class="filter-card-btn" data-ar="alien">
+                  <span class="filter-emoji">👽</span>
+                  <span class="filter-name">Alien</span>
+                </button>
+                <button type="button" class="filter-card-btn" data-ar="clown">
+                  <span class="filter-emoji">🤡</span>
+                  <span class="filter-name">Clown</span>
+                </button>
+              </div>
+
+              <div class="filters-section-title" style="margin-top:12px;">🎨 Color & Atmosphere</div>
+              <div class="filters-grid" id="colorFiltersGrid">
+                <button type="button" class="filter-card-btn active" data-filter="normal">
+                  <span class="filter-emoji">🎥</span>
+                  <span class="filter-name">Normal</span>
+                </button>
+                <button type="button" class="filter-card-btn" data-filter="vivid">
+                  <span class="filter-emoji">✨</span>
+                  <span class="filter-name">Vivid</span>
+                </button>
+                <button type="button" class="filter-card-btn" data-filter="vintage">
+                  <span class="filter-emoji">📷</span>
+                  <span class="filter-name">Retro</span>
+                </button>
+                <button type="button" class="filter-card-btn" data-filter="neon">
+                  <span class="filter-emoji">💜</span>
+                  <span class="filter-name">Neon</span>
+                </button>
+                <button type="button" class="filter-card-btn" data-filter="bw">
+                  <span class="filter-emoji">⬛</span>
+                  <span class="filter-name">B&W</span>
+                </button>
+                <button type="button" class="filter-card-btn" data-filter="sunset">
+                  <span class="filter-emoji">🌄</span>
+                  <span class="filter-name">Sunset</span>
+                </button>
+              </div>
+            </div>
+
             <div class="rc-gift-modal hidden" id="rcGiftModal">
               <div class="gift-modal-header">
-                <span>🎁 Send Direct Gift to Stranger</span>
+                <span>🎁 Live Gifts & Sparks (Stripe Synced)</span>
                 <button type="button" class="btn-text-sm" id="btnCloseGiftModal">✕</button>
               </div>
+              <div class="gift-balance-row">
+                <div class="spark-balance-pill">⚡ Available Sparks: <b id="giftSparksBalance">0</b></div>
+                <button type="button" class="btn-buy-sparks-stripe" id="btnBuySparksStripe">⚡ Buy 100 Sparks ($0.99)</button>
+              </div>
               <div class="gift-cards-grid">
-                <button type="button" class="gift-card-btn" data-gift="Rose" data-sparks="10">
-                  <span class="gift-emoji">🌹</span>
-                  <span class="gift-name">Rose</span>
-                  <span class="gift-cost">10 ⚡</span>
+                <button type="button" class="gift-card-btn" data-gift-id="spark-burst" data-gift="Spark Burst" data-sparks="100" data-price="0.99">
+                  <span class="gift-emoji">✨</span>
+                  <span class="gift-name">Spark Burst</span>
+                  <span class="gift-cost">100 ⚡ ($0.99)</span>
                 </button>
-                <button type="button" class="gift-card-btn" data-gift="Heart" data-sparks="25">
+                <button type="button" class="gift-card-btn" data-gift-id="heart-rain" data-gift="Heart Rain" data-sparks="350" data-price="2.99">
                   <span class="gift-emoji">💖</span>
-                  <span class="gift-name">Heart</span>
-                  <span class="gift-cost">25 ⚡</span>
+                  <span class="gift-name">Heart Rain</span>
+                  <span class="gift-cost">350 ⚡ ($2.99)</span>
                 </button>
-                <button type="button" class="gift-card-btn" data-gift="Coffee" data-sparks="50">
-                  <span class="gift-emoji">☕</span>
-                  <span class="gift-name">Coffee</span>
-                  <span class="gift-cost">50 ⚡</span>
-                </button>
-                <button type="button" class="gift-card-btn" data-gift="Rocket" data-sparks="100">
-                  <span class="gift-emoji">🚀</span>
-                  <span class="gift-name">Rocket</span>
-                  <span class="gift-cost">100 ⚡</span>
-                </button>
-                <button type="button" class="gift-card-btn" data-gift="Crown" data-sparks="250">
+                <button type="button" class="gift-card-btn" data-gift-id="crown-drop" data-gift="Crown Drop" data-sparks="1200" data-price="9.99">
                   <span class="gift-emoji">👑</span>
                   <span class="gift-name">Crown Drop</span>
-                  <span class="gift-cost">250 ⚡</span>
+                  <span class="gift-cost">1200 ⚡ ($9.99)</span>
                 </button>
               </div>
+              <p class="gift-stripe-note">🔒 Payments processed securely via Stripe. Sparks boost creator earnings.</p>
             </div>
           </div>
 
@@ -240,8 +316,8 @@
             <button type="button" class="btn btn-rc-icon" id="btnRcMuteCam" title="Camera On/Off">
               <span id="btnRcCamIcon">📹</span>
             </button>
-            <button type="button" class="btn btn-rc-icon" id="btnRcFlipCam" title="Flip Camera">
-              <span>🔄</span>
+            <button type="button" class="btn btn-rc-icon" id="btnRcVideoFilters" title="AR / VR & Video Filters">
+              <span>✨</span>
             </button>
             <button type="button" class="btn btn-rc-danger" id="btnRcDisconnect" title="Stop and exit chat">
               <span>Stop ⏹</span>

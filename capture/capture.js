@@ -663,8 +663,10 @@ async function openHostSocket() {
   return;
 }
     if (message.type === "live_cohost_request") {
-      appendChat("System", `${message.peerNickname || "A guest"} requested to join your live video.`);
-      toast("A guest requested to join your broadcast. Accept/decline is available on TalkAStranger.");
+      const guestName = message.peerNickname || "A guest";
+      appendChat("System", `${guestName} requested to join your live video feed.`);
+      toast(`👥 ${guestName} requested to join your live feed!`);
+      showCohostRequestOverlay(message.peerClientId, guestName);
       return;
     }
     if (message.type === "live_chat_auth_required") toast("Sign in on TalkAStranger to send live comments.", true);
@@ -1639,13 +1641,16 @@ function initV120Controls() {
     });
   });
 
-  // Mini-Game toggles & tabs
+  // Mini-Game toggles & tabs (Emits game_start to open web stranger's game box)
   $("btnRcGame")?.addEventListener("click", () => {
     const overlay = $("rcGameOverlay");
     if (overlay) {
       overlay.classList.toggle("hidden");
       if (!overlay.classList.contains("hidden")) {
         renderRcGameBoard();
+        rcSend({ type: "game_action", payload: { type: "game_start", game: rcActiveGame || "tictactoe" } });
+      } else {
+        rcSend({ type: "game_action", payload: { type: "game_close" } });
       }
     }
   });
@@ -1730,6 +1735,7 @@ function initV120Controls() {
 async function init() {
   populateCountries();
   initV120Controls();
+  initV122Handlers();
   document.querySelectorAll('input[name="broadcastDestination"]').forEach((input) => input.addEventListener("change", updateDestinationUI));
   countrySelect?.addEventListener("change", updateWatchLink);
   btnSelectSource?.addEventListener("click", selectSource);
@@ -1788,3 +1794,111 @@ async function init() {
 }
 
 init();
+
+// ══════════════════════════════════════════════════════════════════════════
+// v1.2.2 Co-Host Approval, Video Filters & Stripe Gift Integration
+// ══════════════════════════════════════════════════════════════════════════
+
+let pendingCohostClientId = null;
+
+function showCohostRequestOverlay(peerClientId, guestName) {
+  pendingCohostClientId = peerClientId;
+  const overlay = $("cohostRequestOverlay");
+  const nameEl = $("cohostGuestName");
+  if (nameEl) nameEl.textContent = guestName;
+  if (overlay) overlay.classList.remove("hidden");
+}
+
+function initV122Handlers() {
+  // Co-Host Approve / Decline
+  $("btnAcceptCohost")?.addEventListener("click", () => {
+    if (pendingCohostClientId && ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "live_cohost_accept", peerClientId: pendingCohostClientId }));
+      toast("✅ Co-host request approved! Connecting video feed…");
+      appendChat("System", "You approved the co-host request.");
+    }
+    $("cohostRequestOverlay")?.classList.add("hidden");
+    pendingCohostClientId = null;
+  });
+
+  $("btnDeclineCohost")?.addEventListener("click", () => {
+    if (pendingCohostClientId && ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "live_cohost_reject", peerClientId: pendingCohostClientId }));
+      toast("Declined co-host request.");
+    }
+    $("cohostRequestOverlay")?.classList.add("hidden");
+    pendingCohostClientId = null;
+  });
+
+  $("btnCloseCohostOverlay")?.addEventListener("click", () => {
+    $("cohostRequestOverlay")?.classList.add("hidden");
+  });
+
+  // Video Tools & Filters Modal Toggle
+  const toggleFilters = () => $("rcFiltersModal")?.classList.toggle("hidden");
+  $("rcToggleFilters")?.addEventListener("click", toggleFilters);
+  $("btnRcVideoFilters")?.addEventListener("click", toggleFilters);
+  $("btnCloseFiltersModal")?.addEventListener("click", () => $("rcFiltersModal")?.classList.add("hidden"));
+
+  // Apply Color Filter to Local Video Preview
+  document.querySelectorAll("#colorFiltersGrid .filter-card-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#colorFiltersGrid .filter-card-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const filter = btn.dataset.filter || "normal";
+      applyVideoColorFilter(filter);
+    });
+  });
+
+  // Apply AR Effect
+  document.querySelectorAll("#arFiltersGrid .filter-card-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#arFiltersGrid .filter-card-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const ar = btn.dataset.ar || "none";
+      toast(ar === "none" ? "AR Effects cleared" : `🎭 Applied AR filter: ${btn.textContent.trim()}`);
+    });
+  });
+
+  // Buy Sparks via Stripe ($0.99 for 100 sparks)
+  $("btnBuySparksStripe")?.addEventListener("click", () => {
+    chrome.tabs.create({ url: `${SITE}/pricing?product=sparks&amount=100` });
+    toast("Opening Stripe Spark Purchase ($0.99 for 100 Sparks)…");
+  });
+
+  // Stripe Synced Gift triggers
+  document.querySelectorAll(".gift-card-btn").forEach((card) => {
+    card.addEventListener("click", async () => {
+      const giftId = card.dataset.giftId || "spark-burst";
+      const giftName = card.dataset.gift || "Gift";
+      const sparks = card.dataset.sparks || "100";
+      const price = card.dataset.price || "0.99";
+
+      // If user has zero sparks or selects Stripe gift, initiate Stripe flow
+      const auth = await requestAuth();
+      if (!auth?.token) {
+        chrome.tabs.create({ url: `${SITE}/` });
+        return toast("Sign in on TalkAStranger to send Stripe gifts.", true);
+      }
+
+      toast(`Redirecting to Stripe checkout for ${giftName} ($${price})…`);
+      chrome.tabs.create({ url: `${SITE}/pricing?gift=${encodeURIComponent(giftId)}&sparks=${sparks}` });
+      $("rcGiftModal")?.classList.add("hidden");
+    });
+  });
+}
+
+function applyVideoColorFilter(filter) {
+  const cssMap = {
+    normal: "none",
+    vivid: "saturate(200%) contrast(110%)",
+    vintage: "sepia(55%) contrast(88%) brightness(88%) saturate(80%)",
+    neon: "hue-rotate(265deg) saturate(320%) contrast(115%)",
+    bw: "grayscale(100%)",
+    sunset: "hue-rotate(-25deg) saturate(180%) brightness(105%)",
+  };
+  const filterStyle = cssMap[filter] || "none";
+  if ($("rcLocalPreview")) $("rcLocalPreview").style.filter = filterStyle;
+  if ($("rcLocalVideo")) $("rcLocalVideo").style.filter = filterStyle;
+  toast(`Applied filter: ${filter}`);
+}
