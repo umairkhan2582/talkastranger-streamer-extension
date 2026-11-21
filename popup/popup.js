@@ -73,3 +73,10 @@ chrome.runtime.onMessage.addListener((msg) => {
     send({ type: "GET_STATE" }, (state) => render(state || {}));
   } else if (msg.type === "ACTION_ERROR") authStatus.textContent = msg.error;
 });
+
+const btnOpenOverlays = document.getElementById("btnOpenOverlays");
+if (btnOpenOverlays) {
+  btnOpenOverlays.addEventListener("click", () => {
+    chrome.tabs.create({ url: "https://github.com/umairkhan2582/talkastranger-stream-overlays" });
+  });
+}

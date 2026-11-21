@@ -12,6 +12,12 @@
 
 ## 🌟 Key Features
 
+### 🎨 Integrated 10-Theme Stream Overlays (OBS & Streamlabs)
+Streamers using this extension can launch the complete **[TalkAStranger Stream Overlays Suite](https://github.com/umairkhan2582/talkastranger-stream-overlays)** directly from the popup and HUD:
+- **10 Categories (30 Scenes):** Cyberpunk, Retro Arcade, Esports, Frosted Glass, Lofi, Podcast, Synthwave, Crypto, IRL, and Speedrunning.
+- **Offline Personalizer:** One-click handle and theme customization for local or remote OBS browser sources.
+
+
 ### 🟣 Manifest V3 Side Panel HUD
 - **Always Docked:** Stays pinned beside your tabs while streaming, browsing, or gaming.
 - **Creator Metrics:** Live viewer counter, total Sparks tally, and active broadcast duration timer.
