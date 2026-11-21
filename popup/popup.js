@@ -77,6 +77,6 @@ chrome.runtime.onMessage.addListener((msg) => {
 const btnOpenOverlays = document.getElementById("btnOpenOverlays");
 if (btnOpenOverlays) {
   btnOpenOverlays.addEventListener("click", () => {
-    chrome.tabs.create({ url: "https://github.com/umairkhan2582/talkastranger-stream-overlays" });
+    chrome.tabs.create({ url: chrome.runtime.getURL("overlays/manager.html") });
   });
 }

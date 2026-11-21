@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TalkAStranger Streamer Companion",
-  "version": "1.2.4",
+  "version": "1.3.0",
   "description": "Broadcast your screen to TalkAStranger Live Streams, Country LIVE lanes, YouTube Live, and Instant Random Chat.",
   "minimum_chrome_version": "116",
   "permissions": [
@@ -42,5 +42,18 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "overlays/manager.html",
+        "overlays/overlays-data.js",
+        "icons/tassy.svg",
+        "icons/logo.svg"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }

@@ -298,3 +298,78 @@ authAction.addEventListener("click", () => {
 chrome.runtime.sendMessage({ type: "REQUEST_PAGE_AUTH" });
 
 
+
+
+// --- 30-Theme Overlays Suite Integration ---
+const ALL_30_THEMES = [
+  { id: 'cyberpunk-fps', name: 'Cyberpunk FPS' },
+  { id: 'retro-arcade', name: 'Retro 80s Arcade' },
+  { id: 'esports-pro', name: 'Esports Pro Arena' },
+  { id: 'minimal-glass', name: 'Frosted Minimal Glass' },
+  { id: 'cozy-lofi', name: 'Cozy Lofi Study & Chill' },
+  { id: 'podcast-talk', name: 'Broadcast Podcast & Talk' },
+  { id: 'synthwave-retro', name: 'Outrun Synthwave Neon' },
+  { id: 'crypto-finance', name: 'Crypto & Market Trading' },
+  { id: 'irl-fitness', name: 'IRL Outdoor & Fitness' },
+  { id: 'speedrun-quest', name: 'Speedrun & RPG Quest' },
+  { id: 'dark-fantasy-souls', name: 'Dark Fantasy / Elden Souls' },
+  { id: 'scifi-mecha', name: 'Sci-Fi Mecha Cockpit' },
+  { id: 'anime-sakura', name: 'Pastel Anime Sakura' },
+  { id: 'steampunk-victorian', name: 'Steampunk Victorian Workshop' },
+  { id: 'horror-haunted', name: 'Dark VHS Psychological Horror' },
+  { id: 'underwater-abyss', name: 'Bioluminescent Deep Abyss' },
+  { id: 'comic-superhero', name: 'Pop-Art Comic Superhero' },
+  { id: 'neon-racing', name: 'Midnight Drift Street Racing' },
+  { id: 'medieval-tavern', name: 'Hearthside Medieval Tavern' },
+  { id: 'cooking-chef', name: 'Artisan Culinary & Kitchen' },
+  { id: 'music-dj-studio', name: 'Neon DJ Booth & Beat Lab' },
+  { id: 'tactical-military', name: 'Night Vision Tactical Recon' },
+  { id: 'vaporwave-glitch', name: '90s Vaporwave & Glitch Art' },
+  { id: 'nature-forest', name: 'Enchanted Forest Grove' },
+  { id: 'graffiti-urban', name: 'Urban Graffiti & Streetwear' },
+  { id: 'cosmic-astronomy', name: 'Celestial Nebula & Starfield' },
+  { id: 'art-craft-maker', name: 'Artisan Watercolor & Craft' },
+  { id: 'stealth-cyber-ninja', name: 'Crimson Shadow Ninja' },
+  { id: 'arcade-pinball', name: 'Carnival & Retro Pinball' },
+  { id: 'corporate-tech-summit', name: 'Executive Tech Keynote' }
+];
+
+const quickThemeSelect = document.getElementById("quickThemeSelect");
+const quickSceneSelect = document.getElementById("quickSceneSelect");
+const btnCopySelectedOverlay = document.getElementById("btnCopySelectedOverlay");
+const btnStripeCheckoutQuick = document.getElementById("btnStripeCheckoutQuick");
+const btnOpenOverlaysManager = document.getElementById("btnOpenOverlaysManager");
+
+if (quickThemeSelect) {
+  ALL_30_THEMES.forEach(t => {
+    const opt = document.createElement("option");
+    opt.value = t.id;
+    opt.textContent = t.name;
+    quickThemeSelect.appendChild(opt);
+  });
+
+  quickThemeSelect.addEventListener("change", () => {
+    const tid = quickThemeSelect.value;
+    if (btnStripeCheckoutQuick) {
+      btnStripeCheckoutQuick.href = `https://buy.stripe.com/test_${tid.replace(/-/g, '_')}`;
+    }
+  });
+}
+
+if (btnCopySelectedOverlay) {
+  btnCopySelectedOverlay.addEventListener("click", () => {
+    const tid = quickThemeSelect.value;
+    const sid = quickSceneSelect.value;
+    const username = usernameLabel ? usernameLabel.textContent.replace("@", "") : "creator";
+    const url = `https://raw.githack.com/umairkhan2582/talkastranger-stream-overlays/main/packages/${tid}/${sid}.html?name=${encodeURIComponent(username)}&handle=${encodeURIComponent('@' + username)}`;
+    navigator.clipboard.writeText(url).then(() => {
+      showToast(`Copied ${tid}/${sid} OBS URL!`);
+    });
+  });
+}
+
+if (btnOpenOverlaysManager) {
+  btnOpenOverlaysManager.addEventListener("click", () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL("overlays/manager.html") });
+  });
+}

@@ -1,0 +1,19 @@
+{
+  "name": "talkastranger-streamer-companion",
+  "version": "1.3.0",
+  "description": "Chrome Extension Companion for TalkAStranger Streamers with 30-Theme Stream Overlays Suite & Stripe Checkout",
+  "scripts": {
+    "test": "node --test test/extension.test.js",
+    "build": "node scripts/build.js"
+  },
+  "keywords": [
+    "webrtc",
+    "streaming",
+    "obs",
+    "overlays",
+    "chrome-extension",
+    "stripe"
+  ],
+  "author": "Umair Khan",
+  "license": "MIT"
+}

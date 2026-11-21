@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TalkAStranger Overlays Suite - 30 Categories</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #090a0f; color: #f1f5f9; padding: 24px; min-height: 100vh; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 20px; margin-bottom: 24px; }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand-title { font-size: 22px; font-weight: 800; background: linear-gradient(135deg, #60a5fa, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .brand-sub { font-size: 13px; color: #94a3b8; }
+    .bundle-badge { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #000; font-weight: 800; padding: 8px 16px; border-radius: 8px; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+    .toolbar { display: flex; gap: 16px; flex-wrap: wrap; background: #131722; padding: 16px; border-radius: 12px; border: 1px solid #1e293b; margin-bottom: 24px; align-items: center; }
+    .input-group { display: flex; flex-direction: column; gap: 6px; }
+    .input-group label { font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: 0.5px; }
+    .input-group input, .input-group select { background: #0f131d; border: 1px solid #334155; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 13px; outline: none; }
+    .input-group input:focus { border-color: #3b82f6; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+    .card { background: #131722; border: 1px solid #1e293b; border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px; transition: transform 0.2s, border-color 0.2s; }
+    .card:hover { transform: translateY(-3px); border-color: #3b82f6; }
+    .card-title { font-size: 16px; font-weight: 700; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+    .card-desc { font-size: 13px; color: #94a3b8; line-height: 1.4; flex: 1; }
+    .scene-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+    .btn-scene { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; font-size: 11px; font-weight: 600; padding: 6px 10px; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+    .btn-scene:hover { background: #334155; border-color: #64748b; }
+    .card-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #1e293b; }
+    .price-tag { font-size: 14px; font-weight: 800; color: #10b981; }
+    .btn-buy { background: #10b981; color: #000; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 6px; text-decoration: none; }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: #10b981; color: #000; font-weight: bold; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 100; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <img src="../icons/tassy.svg" width="36" height="36" alt="Tassy">
+      <div>
+        <div class="brand-title">TalkAStranger Overlays Suite</div>
+        <div class="brand-sub">30 Curated 1080p Overlay Packs • 90 Animated Scenes for OBS & Streamlabs</div>
+      </div>
+    </div>
+    <a href="https://buy.stripe.com/test_bundle_30_themes_all_access" target="_blank" class="bundle-badge">
+      ⚡ Master All-Access 30-Theme Bundle ($99)
+    </a>
+  </header>
+
+  <div class="toolbar">
+    <div class="input-group">
+      <label>Your Streamer Handle</label>
+      <input type="text" id="streamerHandle" value="@creator" placeholder="@username">
+    </div>
+    <div class="input-group">
+      <label>Display Name</label>
+      <input type="text" id="streamerName" value="CREATOR" placeholder="Display Name">
+    </div>
+    <div class="input-group" style="flex: 1;">
+      <label>Search Themes</label>
+      <input type="text" id="searchInput" placeholder="Filter by theme name or keyword...">
+    </div>
+  </div>
+
+  <div class="grid" id="themesGrid"></div>
+  <div id="toast" class="toast">OBS Browser Source URL copied to clipboard!</div>
+
+  <script src="overlays-data.js"></script>
+  <script>
+    const grid = document.getElementById("themesGrid");
+    const searchInput = document.getElementById("searchInput");
+    const streamerHandle = document.getElementById("streamerHandle");
+    const streamerName = document.getElementById("streamerName");
+    const toast = document.getElementById("toast");
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2500);
+    }
+
+    function renderThemes(filter = "") {
+      grid.innerHTML = "";
+      const query = filter.toLowerCase().trim();
+      const themes = OVERLAYS_SUITE_DATA.themes.filter(t => 
+        !query || t.name.toLowerCase().includes(query) || t.desc.toLowerCase().includes(query) || t.vibe.toLowerCase().includes(query)
+      );
+
+      themes.forEach(theme => {
+        const card = document.createElement("div");
+        card.className = "card";
+        
+        let scenesButtons = "";
+        theme.scenes.forEach(s => {
+          scenesButtons += `<button class="btn-scene" data-theme="${theme.id}" data-scene="${s.id}">Copy ${s.name.split(' ')[0]}</button>`;
+        });
+
+        card.innerHTML = `
+          <div class="card-title">
+            <span>${theme.name}</span>
+            <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${theme.accent};"></span>
+          </div>
+          <div class="card-desc">${theme.desc}</div>
+          <div class="scene-row">${scenesButtons}</div>
+          <div class="card-footer">
+            <span class="price-tag">$${theme.price} / pack</span>
+            <a href="${theme.stripeUrl}" target="_blank" class="btn-buy">Buy via Stripe</a>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      document.querySelectorAll(".btn-scene").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const tid = btn.getAttribute("data-theme");
+          const sid = btn.getAttribute("data-scene");
+          const name = encodeURIComponent(streamerName.value.trim() || "CREATOR");
+          const handle = encodeURIComponent(streamerHandle.value.trim() || "@creator");
+          const url = `https://raw.githack.com/umairkhan2582/talkastranger-stream-overlays/main/packages/${tid}/${sid}.html?name=${name}&handle=${handle}`;
+          navigator.clipboard.writeText(url).then(() => {
+            showToast(`Copied ${tid}/${sid} OBS URL!`);
+          });
+        });
+      });
+    }
+
+    searchInput.addEventListener("input", (e) => renderThemes(e.target.value));
+    renderThemes();
+  </script>
+</body>
+</html>

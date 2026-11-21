@@ -64,6 +64,31 @@
       </div>
     </div>
 
+    
+    <!-- Stream Overlays Quick Selector (30 Themes) -->
+    <div class="overlays-selector-card" style="margin-top: 8px; background: #131722; border: 1px solid #1e293b; border-radius: 8px; padding: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 11px; font-weight: 700; color: #60a5fa; text-transform: uppercase; letter-spacing: 0.5px;">🎨 30-Theme Stream Overlays</span>
+        <button id="btnOpenOverlaysManager" style="background: none; border: none; color: #a78bfa; font-size: 11px; font-weight: 600; cursor: pointer;">Browse All →</button>
+      </div>
+      <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+        <select id="quickThemeSelect" style="flex: 1; background: #0f131d; border: 1px solid #334155; color: #fff; padding: 6px 8px; border-radius: 6px; font-size: 11px; outline: none;"></select>
+        <select id="quickSceneSelect" style="width: 95px; background: #0f131d; border: 1px solid #334155; color: #fff; padding: 6px 8px; border-radius: 6px; font-size: 11px; outline: none;">
+          <option value="ingame-hud">HUD</option>
+          <option value="starting-soon">Start</option>
+          <option value="intermission">BRB</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 6px;">
+        <button id="btnCopySelectedOverlay" class="btn btn-secondary" style="flex: 1; padding: 6px; font-size: 11px;">
+          <span>Copy Scene URL</span>
+        </button>
+        <a id="btnStripeCheckoutQuick" href="https://buy.stripe.com/test_cyberpunk_fps" target="_blank" class="btn" style="background: #10b981; color: #000; font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 6px; text-decoration: none; display: flex; align-items: center; justify-content: center;">
+          $10 Stripe
+        </a>
+      </div>
+    </div>
+
     <!-- Quick Action Controls -->
     <div class="controls-row">
       <button class="btn btn-primary" id="btnGoLive">

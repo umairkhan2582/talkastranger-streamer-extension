@@ -12,9 +12,9 @@
 
 ## 🌟 Key Features
 
-### 🎨 Integrated 10-Theme Stream Overlays (OBS & Streamlabs)
+### 🎨 Integrated 30-Theme Stream Overlays (90 Scenes Total) (OBS & Streamlabs)
 Streamers using this extension can launch the complete **[TalkAStranger Stream Overlays Suite](https://github.com/umairkhan2582/talkastranger-stream-overlays)** directly from the popup and HUD:
-- **10 Categories (30 Scenes):** Cyberpunk, Retro Arcade, Esports, Frosted Glass, Lofi, Podcast, Synthwave, Crypto, IRL, and Speedrunning.
+- **30 Categories (90 Scenes Total):** Cyberpunk, Retro Arcade, Esports, Frosted Glass, Lofi, Podcast, Synthwave, Crypto, IRL, and Speedrunning.
 - **Offline Personalizer:** One-click handle and theme customization for local or remote OBS browser sources.
 
 
